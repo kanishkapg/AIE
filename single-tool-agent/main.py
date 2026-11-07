@@ -1,5 +1,12 @@
+import sys
+
 from agent.agent import run_agent
 from langchain_core.messages import HumanMessage, AIMessage
+
+# The Windows console defaults to cp1252, which cannot encode most characters
+# that come back from web search. Without this, printing a result raises
+# UnicodeEncodeError and kills the session.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 def main():
     print("Research Agent - Phase 01")

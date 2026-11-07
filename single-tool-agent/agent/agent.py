@@ -1,7 +1,6 @@
 from langchain_groq import ChatGroq
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain.agents import create_agent
+from langchain.agents.middleware import ModelCallLimitMiddleware
 
 from agent.config import GROQ_API_KEY, MODEL_NAME, MAX_ITERATIONS
 from agent.tools import web_search, read_url
@@ -19,8 +18,8 @@ Your approach:
 
 Be concise. Do not over-search — if you have a confident answer, give it."""
 
-def build_agent() -> AgentExecutor:
-    """Construct and return agent executor"""
+def build_agent():
+    """Construct and return the compiled agent graph."""
 
     llm = ChatGroq(
         api_key=GROQ_API_KEY,
@@ -29,35 +28,44 @@ def build_agent() -> AgentExecutor:
         max_tokens=1024
     )
 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", SYSTEM_PROMPT),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad")
-    ])
-
-    agent = create_tool_calling_agent(llm=llm, tools=TOOLS, prompt=prompt)
-
-    return AgentExecutor(
-        agent=agent,
-        tools=TOOLS,
-        max_iterations=MAX_ITERATIONS,
-        verbose=True,    # Set False in production — shows the full ReAct loop in dev
-        handle_parsing_errors=True,
-        return_intermediate_steps=True,
+    # Replaces AgentExecutor's max_iterations. 'end' stops cleanly at the cap
+    # instead of raising, so the user still gets whatever answer exists.
+    step_limit = ModelCallLimitMiddleware(
+        run_limit=MAX_ITERATIONS,
+        exit_behavior="end",
     )
 
-def run_agent(question: str, chat_history: list) -> str:
+    # No prompt template needed — create_agent builds the message list itself,
+    # so there is no agent_scratchpad or chat_history placeholder to wire up.
+    return create_agent(
+        model=llm,
+        tools=TOOLS,
+        system_prompt=SYSTEM_PROMPT,
+        middleware=[step_limit],
+    )
+
+def run_agent(question: str, chat_history: list, verbose: bool = True) -> dict:
     """
     Run the agent on a single question.
     Returns the full result including intermediate steps for inspection.
     """
 
-    executor = build_agent()
-    result = executor.invoke({
-        "input": question,
-        "chat_history": chat_history or []
-    })
+    agent = build_agent()
 
-    return result
+    # History and the new question go in as one message list — the graph
+    # appends tool calls and results to this same list as it runs.
+    messages = list(chat_history or [])
+    messages.append({"role": "user", "content": question})
 
+    result = agent.invoke({"messages": messages})
+
+    if verbose:  # Set False in production — shows the full tool-calling loop in dev
+        for message in result["messages"][len(messages):]:
+            message.pretty_print()
+
+    # Keep the old AgentExecutor key so callers reading "output" still work.
+    final_message = result["messages"][-1]
+    return {
+        "output": final_message.content,
+        "messages": result["messages"],
+    }

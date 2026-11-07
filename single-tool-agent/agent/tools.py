@@ -25,7 +25,7 @@ def web_search(query: str) -> str:
             formatted.append(
                 f"Title: {r['title']}\n"
                 f"URL: {r['url']}\n"
-                f"Summary: {r['summary']}\n"
+                f"Summary: {r.get('content', '')[:600]}\n"
             )
         return "\n\n".join(formatted) if formatted else "No results found."
     except Exception as e:
@@ -57,8 +57,9 @@ def read_url(url: str) -> str:
 
         text = soup.get_text(separator="\n", strip=True)
 
-        # Truncate to avoid blowing the context window
-        return text[:4000] if len(text) > 4000 else text
+        # Truncate hard — Groq free tier caps at 8000 tokens per minute, and a
+        # full page plus search results will exceed it on the next model call.
+        return text[:2000] if len(text) > 2000 else text
     
     except requests.RequestException as e:
         return f"HTTP error fetching URL: {str(e)}"
