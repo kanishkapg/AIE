@@ -30,10 +30,15 @@ def build_agent():
     return agent
 
 
-def run_agent(question: str) -> str:
-    agent = build_agent()
-    config = {"configurable": {"thread_id": "user-1"}}
-    response = agent.invoke({"messages": [HumanMessage(content=question)]}, config=config)
+# Build the agent once when this module is imported, and reuse it for every call.
+# This also keeps the same InMemorySaver alive, so conversation memory persists
+# between calls that share a thread_id.
+AGENT = build_agent()
+
+
+def run_agent(question: str, thread_id: str = "user-1"):
+    config = {"configurable": {"thread_id": thread_id}}
+    response = AGENT.invoke({"messages": [HumanMessage(content=question)]}, config=config)
     return response["messages"]
 
 if __name__ == "__main__":
