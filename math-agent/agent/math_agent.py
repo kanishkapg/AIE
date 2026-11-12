@@ -42,6 +42,9 @@ def run_agent(question: str, thread_id: str = "user-1"):
     return response["messages"]
 
 if __name__ == "__main__":
-    result = run_agent("Multiply 6 by 3.7 and the add 12 to it. After that take the square root of the result. Finally divide it by -2.3")
-    for message in result:
+    result1 = run_agent("Multiply 5 by 3.72 and the add 12 to it. After that take the square root of the result. Finally divide it by -2.3")
+    result2 = run_agent("Multiply the result by 150")
+    for message in result1:
+        message.pretty_print()
+    for message in result2:
         message.pretty_print()

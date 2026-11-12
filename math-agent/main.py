@@ -1,4 +1,4 @@
-from agent.agent import run_agent
+from agent.math_agent import run_agent
 
 if __name__ == "__main__":
 
