@@ -1,0 +1,2079 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LangChain Agent Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout concept: a workbench. Sticky contents on the left, one reading column on the right,
+   and the four message roles (system, human, AI, tool) act as the colour system for the whole page. */
+:root {
+  --bg: #EDF2F1; --surface: #FFFFFF; --sunken: #E0E8E7; --ink: #13252B; --muted: #4A5E65; --line: #C4D1D0;
+  --accent: #0A6C6E; --accent-ink: #FFFFFF; --accent-soft: #D3E8E6;
+  --human: #1F55C4; --human-soft: #DFE8FA;
+  --ai: #7A3BB5; --ai-soft: #EDE3F7;
+  --tool: #9A4D00; --tool-soft: #F8E8D4;
+  --system: #4F6168; --system-soft: #DFE6E7;
+  --good: #17703F; --good-soft: #DAF0E2;
+  --bad: #AE241C; --bad-soft: #F9E0DD;
+  --code-bg: #11242A; --code-line: #27404A; --code-ink: #DCE8E6; --code-dim: #8FA9AC;
+  --code-kw: #7FD3CC; --code-str: #F2C38B; --code-fn: #A9C4FF; --code-cls: #D9B8FF; --code-num: #F5A9B8; --code-deco: #8FE0A8;
+  --out-bg: #E4EBEA; --out-ink: #1D3138;
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", "Segoe UI", sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", Verdana, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E191D; --surface: #152429; --sunken: #1C2F35; --ink: #E3EEEC; --muted: #A1B6B7; --line: #2C424A;
+    --accent: #52C9BF; --accent-ink: #06201F; --accent-soft: #143A3B;
+    --human: #8FB0F7; --human-soft: #1B2C50;
+    --ai: #C7A2F2; --ai-soft: #30214A;
+    --tool: #F0B568; --tool-soft: #41300F;
+    --system: #A9BCC0; --system-soft: #24363C;
+    --good: #72D69C; --good-soft: #153A28;
+    --bad: #F4A29B; --bad-soft: #47201D;
+    --code-bg: #0A1518; --code-line: #223840; --code-ink: #DCE8E6; --code-dim: #8FA9AC;
+    --out-bg: #1A2C32; --out-ink: #D5E3E2;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E191D; --surface: #152429; --sunken: #1C2F35; --ink: #E3EEEC; --muted: #A1B6B7; --line: #2C424A;
+  --accent: #52C9BF; --accent-ink: #06201F; --accent-soft: #143A3B;
+  --human: #8FB0F7; --human-soft: #1B2C50;
+  --ai: #C7A2F2; --ai-soft: #30214A;
+  --tool: #F0B568; --tool-soft: #41300F;
+  --system: #A9BCC0; --system-soft: #24363C;
+  --good: #72D69C; --good-soft: #153A28;
+  --bad: #F4A29B; --bad-soft: #47201D;
+  --code-bg: #0A1518; --code-line: #223840; --code-ink: #DCE8E6; --code-dim: #8FA9AC;
+  --out-bg: #1A2C32; --out-ink: #D5E3E2;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 20px; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 17px; line-height: 1.62; }
+a { color: var(--accent); text-underline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+h1, h2, h3, h4 { font-family: var(--font-display); text-wrap: balance; line-height: 1.12; margin: 0; }
+h1 { font-size: clamp(2.9rem, 8vw, 5.2rem); font-weight: 800; letter-spacing: -0.03em; }
+h2 { font-size: clamp(1.85rem, 4vw, 2.5rem); font-weight: 800; letter-spacing: -0.02em; }
+h3 { font-size: clamp(1.4rem, 3vw, 1.7rem); font-weight: 800; letter-spacing: -0.01em; }
+h4 { font-size: 1.05rem; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+ul, ol { margin: 0; padding-left: 1.25em; max-width: 68ch; }
+li + li { margin-top: 0.3em; }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--sunken); padding: 0.08em 0.32em; border-radius: 3px; overflow-wrap: anywhere; }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+.shell { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; max-width: 1240px; margin: 0 auto; padding-block: 24px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { min-width: 0; display: flex; flex-direction: column; gap: 72px; }
+section { display: flex; flex-direction: column; gap: 18px; min-width: 0; scroll-margin-top: 16px; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lead { font-size: 1.2rem; line-height: 1.5; max-width: 60ch; }
+.group-head { padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+
+/* Contents */
+.toc { font-size: 0.95rem; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.toc summary { padding: 10px 14px; font-weight: 700; cursor: pointer; }
+.toc-in { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 14px; }
+.toc h4 { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 400; margin-bottom: 4px; }
+.toc ul { list-style: none; margin: 0; padding: 0; }
+.toc li { margin: 0; }
+.toc li a { display: flex; justify-content: space-between; gap: 8px; padding: 3px 8px; margin-inline: -8px; color: var(--ink); text-decoration: none; border-radius: 4px; }
+.toc li a:hover { background: var(--sunken); }
+.toc li a.here { background: var(--accent-soft); font-weight: 700; }
+.toc .tick { color: var(--good); font-weight: 700; visibility: hidden; }
+.toc a.done .tick { visibility: visible; }
+.progress { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bar { height: 6px; background: var(--sunken); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.25s; }
+.theme { background: none; border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; font-size: 0.85rem; }
+.theme:hover { background: var(--sunken); }
+@media (min-width: 1080px) {
+  .shell { grid-template-columns: 232px minmax(0, 1fr); gap: 56px; }
+  .toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow-y: auto; background: none; border: 0; }
+  .toc summary { display: none; }
+  .toc-in { padding: 0; }
+}
+main > * { max-width: 880px; width: 100%; }
+
+/* Hero and stepper */
+.hero { display: flex; flex-direction: column; gap: 16px; padding-top: 12px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; align-items: baseline; }
+.panel-head h3, .panel-head h4 { font-size: 1.15rem; font-weight: 800; }
+.tag { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 3px; background: var(--sunken); color: var(--muted); white-space: nowrap; }
+.tag.real { background: var(--good-soft); color: var(--good); }
+.tag.sim { background: var(--tool-soft); color: var(--tool); }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs button { background: var(--sunken); border: 1px solid transparent; border-radius: 4px; padding: 6px 12px; font-size: 0.93rem; }
+.tabs button:hover { border-color: var(--accent); }
+.tabs button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@media (min-width: 760px) { .stage { grid-template-columns: 330px minmax(0, 1fr); } }
+.loop-svg { width: 100%; height: auto; max-width: 360px; display: block; margin-inline: auto; }
+.loop-svg rect { fill: var(--sunken); stroke: var(--line); stroke-width: 1.5; transition: fill 0.2s, stroke 0.2s; }
+.loop-svg text { font-family: var(--font-mono); fill: var(--ink); text-anchor: middle; transition: fill 0.2s; }
+.loop-svg .big { font-size: 14px; font-weight: 600; }
+.loop-svg .sub { font-size: 10px; fill: var(--muted); }
+.loop-svg .lab { font-size: 10.5px; fill: var(--muted); }
+.loop-svg path { fill: none; stroke: var(--line); stroke-width: 2; transition: stroke 0.2s; }
+.loop-svg polygon { fill: var(--line); transition: fill 0.2s; }
+.loop-svg .node.on rect { fill: var(--accent); stroke: var(--accent); }
+.loop-svg .node.on text { fill: var(--accent-ink); }
+.loop-svg .edge.on path { stroke: var(--accent); stroke-width: 3; }
+.loop-svg .edge.on polygon { fill: var(--accent); }
+.msgs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 330px; overflow-y: auto; min-width: 0; max-width: none; }
+.msg { margin: 0; padding: 8px 10px; border-radius: 5px; font-size: 0.93rem; line-height: 1.45; overflow-wrap: anywhere; display: flex; flex-direction: column; gap: 3px; }
+.msg .who { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; }
+.msg.human { background: var(--human-soft); } .msg.human .who { color: var(--human); }
+.msg.ai { background: var(--ai-soft); } .msg.ai .who { color: var(--ai); }
+.msg.tool { background: var(--tool-soft); } .msg.tool .who { color: var(--tool); }
+.msg.err { background: var(--bad-soft); } .msg.err .who { color: var(--bad); }
+.msg.sys { background: var(--system-soft); } .msg.sys .who { color: var(--system); }
+.msg .call { font-family: var(--font-mono); font-size: 0.84rem; }
+.msg.new { animation: rise 0.22s ease-out; }
+@keyframes rise { from { transform: translateY(6px); } to { transform: none; } }
+.caption { background: var(--sunken); padding: 10px 12px; border-radius: 5px; min-height: 4.4em; max-width: none; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { background: var(--sunken); border: 1px solid var(--line); border-radius: 4px; padding: 6px 14px; font-size: 0.93rem; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.go { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.count { margin-left: auto; font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Code */
+.snippet { margin: 0; border-radius: 6px; overflow: hidden; background: var(--code-bg); color: var(--code-ink); min-width: 0; }
+.snippet figcaption { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--code-line); font-family: var(--font-mono); font-size: 0.76rem; color: var(--code-dim); }
+.snippet pre { margin: 0; padding: 12px 14px; overflow-x: auto; }
+.snippet pre code { background: none; padding: 0; color: inherit; font-size: 0.82rem; line-height: 1.6; overflow-wrap: normal; white-space: pre; display: block; width: max-content; min-width: 100%; }
+.copy { background: none; border: 1px solid var(--code-line); color: var(--code-ink); border-radius: 3px; font-family: var(--font-mono); font-size: 0.72rem; padding: 2px 8px; }
+.copy:hover { border-color: var(--code-kw); }
+.t-kw { color: var(--code-kw); } .t-str { color: var(--code-str); } .t-fn { color: var(--code-fn); } .t-cls { color: var(--code-cls); }
+.t-num { color: var(--code-num); } .t-com { color: var(--code-dim); font-style: italic; } .t-deco { color: var(--code-deco); }
+.output { margin: 0; border-radius: 6px; background: var(--out-bg); color: var(--out-ink); min-width: 0; overflow: hidden; }
+.output figcaption { padding: 6px 12px 0; font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
+.output pre { margin: 0; padding: 6px 12px 12px; overflow: auto; max-height: 340px; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.55; }
+.pair { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+/* Tables */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.94rem; line-height: 1.45; }
+th { text-align: left; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--sunken); }
+th, td { padding: 9px 12px; vertical-align: top; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+td code { white-space: nowrap; }
+td.wrap code { white-space: normal; }
+tr.band td { background: var(--accent-soft); font-weight: 700; font-size: 0.86rem; padding-block: 6px; }
+
+/* Concepts */
+.concept { padding-top: 6px; gap: 16px; }
+.concept-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; align-items: baseline; }
+.concept-head .num { font-family: var(--font-mono); font-size: 0.95rem; color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+.concept-head .api { grid-column: 2; font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
+.when { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+@media (min-width: 640px) { .when { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.when > div { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font-size: 0.95rem; line-height: 1.45; }
+.when b { display: block; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 3px; font-weight: 600; }
+.when .use b { color: var(--good); } .when .skip b { color: var(--muted); }
+.note { padding: 11px 13px; border-radius: 6px; font-size: 0.96rem; line-height: 1.5; display: flex; flex-direction: column; gap: 6px; background: var(--accent-soft); }
+.note > b:first-child { font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.03em; }
+.note.warn { background: var(--tool-soft); } .note.warn > b:first-child { color: var(--tool); }
+.note.bug { background: var(--bad-soft); } .note.bug > b:first-child { color: var(--bad); }
+.note p, .note ul { max-width: none; }
+.try { background: var(--surface); border: 1px dashed var(--accent); border-radius: 6px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.try h4 { color: var(--accent); }
+.try ul { font-size: 0.96rem; max-width: none; }
+.ran { display: inline-flex; gap: 8px; align-items: center; font-size: 0.93rem; cursor: pointer; font-weight: 700; }
+.ran input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+
+/* Config playground */
+.fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (min-width: 640px) { .fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+label.field { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; font-weight: 700; min-width: 0; }
+input[type="text"] { font: inherit; font-weight: 400; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; width: 100%; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: var(--sunken); border: 1px solid transparent; border-radius: 3px; padding: 2px 9px; font-size: 0.86rem; }
+.chip:hover { border-color: var(--accent); }
+.switches { display: flex; flex-direction: column; gap: 6px; font-size: 0.93rem; }
+.switches label { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+.switches input { margin-top: 5px; accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (min-width: 700px) { .two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.box { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.box h4 { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.box .msgs { max-height: 240px; }
+.saver { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-width: none; }
+.saver li { margin: 0; }
+.saver button { width: 100%; display: flex; justify-content: space-between; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 5px 9px; font-family: var(--font-mono); font-size: 0.82rem; text-align: left; font-variant-numeric: tabular-nums; }
+.saver button:hover { border-color: var(--accent); }
+.saver button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.empty { color: var(--muted); font-size: 0.92rem; }
+
+/* Builder */
+.builder { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+@media (min-width: 860px) { .builder { grid-template-columns: 270px minmax(0, 1fr); } }
+.opts { display: flex; flex-direction: column; gap: 6px; }
+.opt { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 9px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); cursor: pointer; line-height: 1.35; }
+.opt:hover { border-color: var(--accent); }
+.opt input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; }
+.opt b { font-size: 0.95rem; }
+.opt small { grid-column: 2; color: var(--muted); font-size: 0.82rem; }
+.opt.locked { background: var(--accent-soft); }
+.builder .snippet pre { max-height: 560px; overflow: auto; }
+
+/* Project cards */
+.cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (min-width: 680px) { .cards { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 0.96rem; line-height: 1.48; min-width: 0; }
+.card .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card h3 { font-size: 1.14rem; }
+.card .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; padding-top: 4px; }
+.card .tags a { font-family: var(--font-mono); font-size: 0.72rem; background: var(--sunken); padding: 1px 6px; border-radius: 3px; text-decoration: none; color: var(--ink); }
+.card .tags a:hover { background: var(--accent-soft); }
+
+/* Quiz */
+.quiz { display: flex; flex-direction: column; gap: 12px; }
+.q { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.q p { font-weight: 700; max-width: none; }
+.q .answers { display: flex; flex-direction: column; gap: 5px; }
+.q button { text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; font-size: 0.95rem; line-height: 1.4; }
+.q button:hover:not(:disabled) { border-color: var(--accent); }
+.q button.right { background: var(--good-soft); border-color: var(--good); }
+.q button.wrong { background: var(--bad-soft); border-color: var(--bad); }
+.q button:disabled { cursor: default; color: var(--ink); }
+.q .why { font-size: 0.93rem; color: var(--muted); }
+.score { font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+footer { color: var(--muted); font-size: 0.9rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<details class="toc" id="toc">
+  <summary>Contents and progress</summary>
+  <div class="toc-in">
+    <div class="progress">
+      <span id="progress-text">0 of 12 concepts tried</span>
+      <div class="bar"><i id="progress-bar"></i></div>
+    </div>
+    <div><h4>Start</h4><ul>
+      <li><a href="#loop"><span>The agent loop</span></a></li>
+      <li><a href="#setup"><span>Setup</span></a></li>
+      <li><a href="#config"><span>What is config?</span></a></li>
+      <li><a href="#map"><span>The 80/20 map</span></a></li>
+    </ul></div>
+    <div><h4>Core</h4><ul>
+      <li><a href="#c-model" data-c="c-model"><span>Models</span><span class="tick">✓</span></a></li>
+      <li><a href="#c-tools" data-c="c-tools"><span>Tools</span><span class="tick">✓</span></a></li>
+      <li><a href="#c-agent" data-c="c-agent"><span>Agents</span><span class="tick">✓</span></a></li>
+      <li><a href="#c-memory" data-c="c-memory"><span>Memory</span><span class="tick">✓</span></a></li>
+    </ul></div>
+    <div><h4>Useful</h4><ul>
+      <li><a href="#c-structured" data-c="c-structured"><span>Structured output</span><span class="tick">✓</span></a></li>
+      <li><a href="#c-stream" data-c="c-stream"><span>Streaming</span><span class="tick">✓</span></a></li>
+      <li><a href="#c-context" data-c="c-context"><span>Runtime context</span><span class="tick">✓</span></a></li>
+    </ul></div>
+    <div><h4>Safe</h4><ul>
+      <li><a href="#c-middleware" data-c="c-middleware"><span>Middleware</span><span class="tick">✓</span></a></li>
+      <li><a href="#c-approval" data-c="c-approval"><span>Human approval</span><span class="tick">✓</span></a></li>
+    </ul></div>
+    <div><h4>Patterns</h4><ul>
+      <li><a href="#c-retrieval" data-c="c-retrieval"><span>Retrieval (RAG)</span><span class="tick">✓</span></a></li>
+      <li><a href="#c-subagents" data-c="c-subagents"><span>Sub-agents</span><span class="tick">✓</span></a></li>
+      <li><a href="#c-longterm" data-c="c-longterm"><span>Long-term memory</span><span class="tick">✓</span></a></li>
+    </ul></div>
+    <div><h4>Play and plan</h4><ul>
+      <li><a href="#builder"><span>Agent builder</span></a></li>
+      <li><a href="#fix"><span>Find the fix</span></a></li>
+      <li><a href="#skip"><span>Safe to skip</span></a></li>
+      <li><a href="#ideas"><span>What to build</span></a></li>
+      <li><a href="#quiz"><span>Check yourself</span></a></li>
+      <li><a href="#notes"><span>How this was tested</span></a></li>
+    </ul></div>
+    <div><button class="theme" id="theme" type="button">Switch theme</button></div>
+  </div>
+</details>
+
+<main>
+
+<!-- HERO -->
+<section class="hero" id="loop">
+  <span class="eyebrow">LangChain 1.4 · learn by running it</span>
+  <h1>An agent is a loop.</h1>
+  <p class="lead">A model reads a list of messages. It either answers, or it asks for a tool. Your code runs the tool, adds the result to the list, and asks the model again. Almost everything else in LangChain supports this loop.</p>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Step through a run</h3>
+      <span class="tag real">real messages from gpt-oss-20b on Groq</span>
+    </div>
+    <div class="tabs" id="scenario-tabs">
+      <button type="button" data-s="one" aria-pressed="true">One tool</button>
+      <button type="button" data-s="chain" aria-pressed="false">Several tools</button>
+      <button type="button" data-s="none" aria-pressed="false">No tool needed</button>
+      <button type="button" data-s="error" aria-pressed="false">Tool fails</button>
+    </div>
+    <div class="stage">
+      <svg class="loop-svg" viewBox="0 0 360 270" role="img" aria-label="The agent loop. You send a message to the model. The model asks for tools, tools return results to the model, and the model finally gives an answer.">
+        <g class="edge" id="e-in"><path d="M150 48 L94.6 99.9"/><polygon points="88,106 97.7,103.2 91.5,96.6"/></g>
+        <g class="edge" id="e-call"><path d="M130 122 L221 122"/><polygon points="230,122 221,117.5 221,126.5"/></g>
+        <g class="edge" id="e-back"><path d="M230 148 L139 148"/><polygon points="130,148 139,143.5 139,152.5"/></g>
+        <g class="edge" id="e-out"><path d="M90 162 L143.6 215.6"/><polygon points="150,222 146.8,212.4 140.4,218.8"/></g>
+        <text class="lab" x="180" y="113">tool_calls</text>
+        <text class="lab" x="180" y="166">ToolMessage</text>
+        <text class="lab" x="72" y="203">no tool calls</text>
+        <g class="node" id="n-you"><rect x="130" y="8" width="100" height="40" rx="5"/><text class="big" x="180" y="33">You</text></g>
+        <g class="node" id="n-model"><rect x="12" y="108" width="118" height="54" rx="5"/><text class="big" x="71" y="132">Model</text><text class="sub" x="71" y="149">reads the list</text></g>
+        <g class="node" id="n-tools"><rect x="230" y="108" width="118" height="54" rx="5"/><text class="big" x="289" y="132">Tools</text><text class="sub" x="289" y="149">your Python</text></g>
+        <g class="node" id="n-end"><rect x="130" y="222" width="100" height="40" rx="5"/><text class="big" x="180" y="247">Answer</text></g>
+      </svg>
+      <ol class="msgs" id="step-msgs" aria-live="polite"></ol>
+    </div>
+    <p class="caption" id="step-caption"></p>
+    <div class="controls">
+      <button class="btn" id="step-back" type="button">Back</button>
+      <button class="btn go" id="step-next" type="button">Next step</button>
+      <button class="btn" id="step-play" type="button">Play</button>
+      <span class="count" id="step-count"></span>
+    </div>
+  </div>
+</section>
+
+<!-- SETUP -->
+<section id="setup">
+  <div class="group-head">
+    <span class="eyebrow">Before you start</span>
+    <h2>Set up once</h2>
+  </div>
+  <p>You already have most of this in your project. Every example on this page imports one small file, so you can copy a script and run it straight away.</p>
+  <ol>
+    <li>Update your packages. Your <code>requirements.txt</code> allows <code>langchain&gt;=1.0</code>, but some features here need a newer version.</li>
+  </ol>
+  <figure class="snippet"><figcaption><span>terminal</span><button class="copy" type="button">Copy</button></figcaption><pre><code>pip install -U "langchain&gt;=1.4,&lt;2" langchain-groq python-dotenv</code></pre></figure>
+  <ol start="2">
+    <li>Keep your <code>GROQ_API_KEY</code> in the <code>.env</code> file, as you do now.</li>
+    <li>Save this file as <code>llm.py</code> in the folder where you will run the examples.</li>
+  </ol>
+  <figure class="snippet"><figcaption><span>llm.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+
+load_dotenv(override=True)  # reads GROQ_API_KEY from your .env file
+
+model = init_chat_model("groq:openai/gpt-oss-20b", temperature=0)</code></pre></figure>
+  <p>To use a different model later, change that one string. For example, <code>"openai:gpt-5.5"</code> needs the <code>langchain-openai</code> package and an OpenAI key. The rest of your agent stays the same.</p>
+</section>
+
+<!-- CONFIG -->
+<section id="config">
+  <div class="group-head">
+    <span class="eyebrow">Your first question</span>
+    <h2>What is <code>config</code>?</h2>
+  </div>
+  <p class="lead"><code>config</code> is a plain Python dictionary that you pass as the second argument to <code>invoke()</code>. It holds settings for this run. The model never reads it.</p>
+  <p>Think of a clinic. What you tell the doctor is the <b>input</b>. Your patient number is the <b>config</b>. The number never becomes part of the conversation, but the clinic uses it to find your file. In the same way, <code>thread_id</code> tells the checkpointer which saved conversation to load.</p>
+
+  <figure class="snippet"><figcaption><span>the shape of a call</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">config = {"configurable": {"thread_id": "chat-1"}}
+
+agent.invoke(
+    {"messages": [{"role": "user", "content": "Hello"}]},  # input: what the model reads
+    config,                                                # config: how to run this call
+)</code></pre></figure>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Play with thread_id</h3>
+      <span class="tag sim">simulation: no real model runs here</span>
+    </div>
+    <p>This practice bot only understands names, but the saving and loading works like the real checkpointer. Send "What is my name?" on <code>chat-1</code>, then on <code>chat-2</code>.</p>
+    <div class="fields">
+      <label class="field" for="cfg-thread">thread_id
+        <input type="text" id="cfg-thread" value="chat-1" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="field" for="cfg-text">Your message
+        <input type="text" id="cfg-text" value="What is my name?" autocomplete="off">
+      </label>
+    </div>
+    <div class="chips" id="cfg-presets">
+      <button class="chip" type="button" data-t="What is my name?">What is my name?</button>
+      <button class="chip" type="button" data-t="My name is Kanishka.">My name is Kanishka.</button>
+      <button class="chip" type="button" data-t="My name is Sam.">My name is Sam.</button>
+    </div>
+    <div class="switches">
+      <label for="cfg-saver"><input type="checkbox" id="cfg-saver" checked><span>Use a checkpointer: <code>checkpointer=InMemorySaver()</code></span></label>
+      <label for="cfg-rebuild"><input type="checkbox" id="cfg-rebuild"><span>Build a new agent on every call (the bug in your <code>math_agent.py</code>)</span></label>
+    </div>
+    <div class="controls">
+      <button class="btn go" id="cfg-send" type="button">Send</button>
+      <button class="btn" id="cfg-restart" type="button">Restart Python</button>
+    </div>
+    <figure class="snippet"><figcaption><span>what your code runs</span></figcaption><pre><code id="cfg-code"></code></pre></figure>
+    <div class="two">
+      <div class="box">
+        <h4>Inside the checkpointer</h4>
+        <ul class="saver" id="cfg-store"></ul>
+      </div>
+      <div class="box">
+        <h4>Sent to the model on the last call</h4>
+        <ol class="msgs" id="cfg-msgs"></ol>
+      </div>
+    </div>
+  </div>
+
+  <h3>Three kinds of data go into a run</h3>
+  <p>These are easy to mix up. The question to ask is: who needs to read this?</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Argument</th><th>Holds</th><th>Who reads it</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><b>input</b></td><td>The conversation</td><td>The model</td><td class="wrap"><code>{"messages": [...]}</code></td></tr>
+      <tr><td><b>config</b></td><td>How to run: which thread, limits, labels</td><td>LangChain and the checkpointer</td><td class="wrap"><code>{"configurable": {"thread_id": "chat-1"}}</code></td></tr>
+      <tr><td><b>context</b></td><td>Facts about your app or user</td><td>Your tools and middleware</td><td class="wrap"><code>context=UserContext(user_id="student-1")</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>What else can go in <code>config</code>?</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Key</th><th>What it does</th><th>When you need it</th></tr></thead>
+    <tbody>
+      <tr><td><code>configurable.thread_id</code></td><td>Chooses the saved conversation</td><td>Any agent with memory</td></tr>
+      <tr><td><code>recursion_limit</code></td><td>Stops the run after this many graph steps</td><td>A hard safety stop. <code>create_agent</code> sets it to 9999, so set your own limit.</td></tr>
+      <tr><td><code>tags</code>, <code>metadata</code></td><td>Labels for tracing tools such as LangSmith</td><td>Finding runs later</td></tr>
+      <tr><td><code>run_name</code></td><td>A readable name for the run</td><td>Tracing and debugging</td></tr>
+    </tbody>
+  </table></div>
+  <p>Why the extra <code>"configurable"</code> level? Top-level keys are standard settings that every run has. <code>configurable</code> is the slot for values that a specific part needs, and <code>thread_id</code> is there because the checkpointer reads it.</p>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>config_keys.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from langchain.agents import create_agent
+from langchain.tools import tool
+from langgraph.errors import GraphRecursionError
+from llm import model
+
+@tool
+def add(a: float, b: float) -&gt; float:
+    """Add two numbers."""
+    return a + b
+
+agent = create_agent(model, tools=[add])
+
+config = {
+    "recursion_limit": 2,                # stop after this many graph steps
+    "tags": ["math-agent", "learning"],  # labels for tracing tools
+    "metadata": {"user": "kanishka"},    # extra details for tracing tools
+    "run_name": "add-numbers",           # a readable name for this run
+}
+
+try:
+    agent.invoke({"messages": [{"role": "user", "content": "Add 2 and 3 with the tool."}]}, config)
+except GraphRecursionError:
+    print("Stopped: the agent ran out of steps.")</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>Stopped: the agent ran out of steps.</pre></figure>
+  </div>
+
+  <h3>Four rules that prevent most bugs</h3>
+  <ul>
+    <li><b>Checkpointer but no <code>thread_id</code>:</b> you get <code>ValueError: Checkpointer requires one or more of the following 'configurable' keys: thread_id, checkpoint_ns, checkpoint_id</code>.</li>
+    <li><b><code>thread_id</code> but no checkpointer:</b> no error, but nothing is saved. The agent forgets everything.</li>
+    <li><b>One <code>thread_id</code> per conversation.</b> If two users share an ID, they share a conversation. Something like <code>f"{user_id}-{chat_id}"</code> keeps them apart.</li>
+    <li><b>Build the agent once.</b> <code>InMemorySaver</code> lives inside the object you created. A new one starts empty.</li>
+  </ul>
+
+  <div class="note bug">
+    <b>Found in your code: math-agent/agent/math_agent.py</b>
+    <p><code>run_agent()</code> calls <code>build_agent()</code> every time, so each question gets a new, empty <code>InMemorySaver</code>. The <code>thread_id</code> is correct, but the saved messages are gone. This small copy of that pattern shows the result on the real model:</p>
+  </div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>same_bug.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver
+from llm import model
+
+def run_agent(question):
+    # Every call builds a NEW agent with a NEW, empty saver.
+    agent = create_agent(model, tools=[], checkpointer=InMemorySaver())
+    config = {"configurable": {"thread_id": "user-1"}}
+    result = agent.invoke({"messages": [{"role": "user", "content": question}]}, config)
+    return result["messages"][-1].content
+
+print(run_agent("My name is Kanishka."))
+print(run_agent("What is my name?"))    # it has forgotten</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>Nice to meet you, Kanishka! How can I help you today?
+I don’t actually know your name—could you let me know what you’d like me to call you?</pre></figure>
+  </div>
+  <p>The fix is to build the agent once, outside the function:</p>
+  <figure class="snippet"><figcaption><span>math_agent.py (the fix)</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">agent = build_agent()   # runs once, when the file loads
+
+def run_agent(question: str, thread_id: str = "user-1"):
+    config = {"configurable": {"thread_id": thread_id}}
+    response = agent.invoke({"messages": [HumanMessage(content=question)]}, config=config)
+    return response["messages"]</code></pre></figure>
+</section>
+
+<!-- MAP -->
+<section id="map">
+  <div class="group-head">
+    <span class="eyebrow">The 80/20 view</span>
+    <h2>Twelve ideas cover most agents</h2>
+  </div>
+  <p>LangChain has a very large API. You can build most agents with the twelve ideas below, and all of them attach to the same loop. Learn them in this order. The first four are enough to build something real.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Concept</th><th>In one line</th><th>You need it when</th></tr></thead>
+    <tbody>
+      <tr class="band"><td colspan="3">Core: every agent uses these</td></tr>
+      <tr><td><a href="#c-model">Models</a></td><td>The part that reads and decides</td><td>Always</td></tr>
+      <tr><td><a href="#c-tools">Tools</a></td><td>Python functions the model can ask for</td><td>It must act or fetch facts</td></tr>
+      <tr><td><a href="#c-agent">Agents</a></td><td>The loop around the model and tools</td><td>The model must choose the steps</td></tr>
+      <tr><td><a href="#c-memory">Memory</a></td><td>Saves messages for each thread</td><td>Users ask follow-up questions</td></tr>
+      <tr class="band"><td colspan="3">Useful: most real apps add these</td></tr>
+      <tr><td><a href="#c-structured">Structured output</a></td><td>Returns a Python object instead of text</td><td>Your code uses the answer</td></tr>
+      <tr><td><a href="#c-stream">Streaming</a></td><td>Shows progress while it runs</td><td>A person is watching</td></tr>
+      <tr><td><a href="#c-context">Runtime context</a></td><td>Passes facts to tools, hidden from the model</td><td>Tools must know the user</td></tr>
+      <tr class="band"><td colspan="3">Safe: add these before real users arrive</td></tr>
+      <tr><td><a href="#c-middleware">Middleware</a></td><td>Plugins that run around the loop</td><td>You need limits, retries or logging</td></tr>
+      <tr><td><a href="#c-approval">Human approval</a></td><td>Pauses until a person agrees</td><td>A tool has real consequences</td></tr>
+      <tr class="band"><td colspan="3">Patterns: built from the ideas above</td></tr>
+      <tr><td><a href="#c-retrieval">Retrieval (RAG)</a></td><td>A tool that searches your documents</td><td>It must know your data</td></tr>
+      <tr><td><a href="#c-subagents">Sub-agents</a></td><td>An agent used as a tool</td><td>One agent has too many jobs</td></tr>
+      <tr><td><a href="#c-longterm">Long-term memory</a></td><td>Facts kept across conversations</td><td>It must remember a user next week</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- CORE -->
+<section id="core-head">
+  <div class="group-head">
+    <span class="eyebrow">Core</span>
+    <h2>The four ideas every agent uses</h2>
+  </div>
+</section>
+
+<section class="concept" id="c-model">
+  <div class="concept-head"><span class="num">1</span><h3>Models</h3><span class="api">init_chat_model()</span></div>
+  <p>A chat model takes messages and returns one <code>AIMessage</code>. It has no memory and it cannot run code. You saw this in the loop above: each call is a fresh read of the list.</p>
+  <div class="when">
+    <div class="use"><b>How to use it</b>Create it once and share it. Use <code>init_chat_model("provider:name")</code> so that changing provider is a one-line edit.</div>
+    <div class="skip"><b>Good to know</b>Set <code>temperature=0</code> for agents. It makes tool use steadier, although it does not make replies identical.</div>
+  </div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>model_basics.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from llm import model
+
+reply = model.invoke("Explain an AI agent in one sentence.")
+
+print(type(reply).__name__)    # AIMessage
+print(reply.content)           # the text
+print(reply.usage_metadata)    # tokens used</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>AIMessage
+An AI agent is a computational entity that perceives its environment through sensors, processes information using algorithms, and takes actions to achieve goals or maximize reward.
+{'input_tokens': 79, 'output_tokens': 127, 'total_tokens': 206, 'output_token_details': {'reasoning': 88}}</pre></figure>
+  </div>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Run it twice with <code>temperature=1</code> in <code>llm.py</code> and compare the replies.</li>
+      <li>Look at <code>usage_metadata</code>. Every message you send costs input tokens, and that matters for memory later.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-model">I ran this</label>
+  </div>
+</section>
+
+<section class="concept" id="c-tools">
+  <div class="concept-head"><span class="num">2</span><h3>Tools</h3><span class="api">@tool</span></div>
+  <p>A tool is a normal Python function with the <code>@tool</code> decorator. The model never sees your code. It sees only the name, the docstring and the argument types, so write the docstring as instructions for the model.</p>
+  <div class="when">
+    <div class="use"><b>Use a tool when</b>The model needs exact maths, live data, private data, or has to change something in the world.</div>
+    <div class="skip"><b>Skip it when</b>The model can answer from its own knowledge, such as rewriting or explaining text.</div>
+  </div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>tool_basics.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from langchain.tools import tool
+from llm import model
+
+@tool
+def convert_currency(amount: float, rate: float) -&gt; float:
+    """Convert money using an exchange rate.
+
+    Args:
+        amount: The amount of money to convert.
+        rate: The value of one unit in the target currency.
+    """
+    return amount * rate
+
+# This is what the model gets to read:
+print(convert_currency.name)
+print(convert_currency.description)
+print(convert_currency.args)
+
+# You can test a tool without any model:
+print(convert_currency.invoke({"amount": 100, "rate": 300}))
+
+# The model only ASKS for a tool. It never runs it:
+reply = model.bind_tools([convert_currency]).invoke("What is 100 USD in LKR at 300 LKR per USD?")
+print(reply.tool_calls)</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>convert_currency
+Convert money using an exchange rate.
+
+Args:
+    amount: The amount of money to convert.
+    rate: The value of one unit in the target currency.
+{'amount': {'title': 'Amount', 'type': 'number'}, 'rate': {'title': 'Rate', 'type': 'number'}}
+30000.0
+[{'name': 'convert_currency', 'args': {'amount': 100, 'rate': 300}, 'id': 'fc_b692d3e6-b18c-4742-9ff0-df6002603a4b', 'type': 'tool_call'}]</pre></figure>
+  </div>
+  <p>The last line of the output is the key idea. The model returned a <b>request</b> to call the tool, and nothing has run yet. The agent is the part that runs it.</p>
+  <h4>Good tools have</h4>
+  <ul>
+    <li>A clear name such as <code>search_orders</code>, and a docstring that says when to use it.</li>
+    <li>Type hints on every argument, because they tell the model what to send.</li>
+    <li>Small return values. Tool output goes back to the model and costs tokens.</li>
+    <li>Argument names other than <code>config</code> and <code>runtime</code>, which are reserved.</li>
+  </ul>
+  <div class="note warn">
+    <b>Tested: an exception stops the agent</b>
+    <p>If a tool raises an exception, the whole run crashes. Your <code>devide</code> and <code>square_root</code> tools raise <code>ValueError</code>, so dividing by zero ends the run. <a href="#c-middleware">Middleware</a> shows how to send the error to the model instead.</p>
+  </div>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Delete the docstring and run it. <code>@tool</code> refuses a function with no description.</li>
+      <li>Change the question to "What is the capital of Japan?". Check whether <code>tool_calls</code> is empty.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-tools">I ran this</label>
+  </div>
+</section>
+
+<section class="concept" id="c-agent">
+  <div class="concept-head"><span class="num">3</span><h3>Agents</h3><span class="api">create_agent()</span></div>
+  <p><code>create_agent</code> builds the loop for you. It calls the model, runs any tools it asks for, adds the results to the list, and repeats. It stops when the model replies with no tool calls.</p>
+  <div class="tbl"><table>
+    <thead><tr><th></th><th>Chain: <code>prompt | model | parser</code></th><th>Agent: <code>create_agent</code></th></tr></thead>
+    <tbody>
+      <tr><td><b>Who picks the steps?</b></td><td>You, when you write the code</td><td>The model, while it runs</td></tr>
+      <tr><td><b>Good for</b></td><td>Translate, summarise, classify</td><td>Tasks with tools and unknown steps</td></tr>
+      <tr><td><b>Cost and speed</b></td><td>One model call, predictable</td><td>Several calls, varies by task</td></tr>
+    </tbody>
+  </table></div>
+  <p>Use a chain when you already know the steps. Your <code>test1.py</code> is a good example of that. Use an agent when the model has to decide.</p>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>first_agent.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from langchain.agents import create_agent
+from langchain.tools import tool
+from llm import model
+
+@tool
+def multiply(a: float, b: float) -&gt; float:
+    """Multiply two numbers."""
+    return a * b
+
+@tool
+def add(a: float, b: float) -&gt; float:
+    """Add two numbers."""
+    return a + b
+
+agent = create_agent(
+    model,
+    tools=[multiply, add],
+    system_prompt="You are a math assistant. Always use tools for calculations.",
+)
+
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "Multiply 6 by 3.5, then add 12."}]}
+)
+
+for message in result["messages"]:
+    message.pretty_print()</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>================================ Human Message =================================
+
+Multiply 6 by 3.5, then add 12.
+================================== Ai Message ==================================
+Tool Calls:
+  multiply (fc_9b304360-6c7d-445d-8097-528f57b7aeb4)
+ Call ID: fc_9b304360-6c7d-445d-8097-528f57b7aeb4
+  Args:
+    a: 6
+    b: 3.5
+================================= Tool Message =================================
+Name: multiply
+
+21.0
+================================== Ai Message ==================================
+Tool Calls:
+  add (fc_4d20b9c0-f68c-40cc-8a8e-ec7e76616a09)
+ Call ID: fc_4d20b9c0-f68c-40cc-8a8e-ec7e76616a09
+  Args:
+    a: 33
+    b: 0
+================================= Tool Message =================================
+Name: add
+
+33.0
+================================== Ai Message ==================================
+
+Let’s do the calculation step by step:
+
+1. **Multiply 6 by 3.5**  
+   \(6 \times 3.5 = 21\)
+
+2. **Add 12 to the result**  
+   \(21 + 12 = 33\)
+
+So the final answer is **33**.</pre></figure>
+  </div>
+  <div class="note warn">
+    <b>Look at the second tool call</b>
+    <p>The real output shows <code>add(a=33, b=0)</code>. The model worked out 21 + 12 by itself and then called the tool with a pointless 0. The final answer is right, but the system prompt said to use tools for calculations. A prompt is a strong request and the model can still ignore it. Small models do this more often, so always read <code>result["messages"]</code> while you are building.</p>
+  </div>
+  <p>Two lines you will use all the time: <code>result["messages"]</code> is the full list, and <code>result["messages"][-1].content</code> is the final answer.</p>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Add a <code>subtract</code> tool and ask a question that needs all three.</li>
+      <li>Ask "What is 2 + 2?" and see if the model bothers to use a tool.</li>
+      <li>Rewrite the system prompt and see if the <code>add(33, 0)</code> habit changes.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-agent">I ran this</label>
+  </div>
+</section>
+
+<section class="concept" id="c-memory">
+  <div class="concept-head"><span class="num">4</span><h3>Memory</h3><span class="api">checkpointer= + thread_id</span></div>
+  <p>The model remembers nothing, so memory means saving the message list and sending it again. A checkpointer saves the list after each step, under the <code>thread_id</code> from your <code>config</code>.</p>
+  <div class="when">
+    <div class="use"><b>Use it when</b>Users ask follow-up questions, or a run must pause and continue later.</div>
+    <div class="skip"><b>Skip it when</b>Each request stands alone, such as "classify this one email".</div>
+  </div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>memory.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver
+from llm import model
+
+agent = create_agent(model, tools=[], checkpointer=InMemorySaver())
+
+def ask(text, thread_id):
+    config = {"configurable": {"thread_id": thread_id}}
+    result = agent.invoke({"messages": [{"role": "user", "content": text}]}, config)
+    return result["messages"][-1].content
+
+print(ask("Hi, my name is Kanishka.", "chat-1"))
+print(ask("What is my name?", "chat-1"))   # same thread: it knows
+print(ask("What is my name?", "chat-2"))   # new thread: it has no idea
+
+# Look inside the saved conversation:
+saved = agent.get_state({"configurable": {"thread_id": "chat-1"}})
+print(len(saved.values["messages"]), "messages saved in chat-1")</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>Hello, Kanishka! 👋 How can I assist you today?
+Your name is Kanishka.
+I don’t actually know your name—could you let me know what you’d like me to call you?
+4 messages saved in chat-1</pre></figure>
+  </div>
+  <h4>Keep memory after Python restarts</h4>
+  <p><code>InMemorySaver</code> is for learning, because it disappears when the program stops. Swap in SQLite to keep chats in a file. First run <code>pip install langgraph-checkpoint-sqlite</code>.</p>
+  <figure class="snippet"><figcaption><span>keep chats in a file</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">import sqlite3
+from langgraph.checkpoint.sqlite import SqliteSaver
+
+connection = sqlite3.connect("chats.db", check_same_thread=False)
+agent = create_agent(model, tools=[], checkpointer=SqliteSaver(connection))</code></pre></figure>
+  <p>For a production app, the docs recommend <code>PostgresSaver</code>. Your agent code does not change.</p>
+  <div class="note warn">
+    <b>Memory has a cost</b>
+    <p>The saved list is sent to the model on every call, so a long chat uses more tokens each turn. <code>SummarizationMiddleware</code> in <a href="#c-middleware">Middleware</a> helps with that.</p>
+  </div>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Fix <code>math_agent.py</code> using the change in the <a href="#config">config section</a>, then ask a follow-up question.</li>
+      <li>Print every saved message with <code>agent.get_state(config).values["messages"]</code>.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-memory">I ran this</label>
+  </div>
+</section>
+
+<!-- USEFUL -->
+<section id="useful-head">
+  <div class="group-head">
+    <span class="eyebrow">Useful</span>
+    <h2>Connect your agent to an app</h2>
+  </div>
+</section>
+
+<section class="concept" id="c-structured">
+  <div class="concept-head"><span class="num">5</span><h3>Structured output</h3><span class="api">response_format=ToolStrategy(Schema)</span></div>
+  <p>A plain reply is text for people to read. If your code needs the answer, describe the shape with a Pydantic class and you get a checked Python object back.</p>
+  <div class="when">
+    <div class="use"><b>Use it when</b>The result goes into a database, a form, a chart or the next step of your program.</div>
+    <div class="skip"><b>Skip it when</b>A person simply reads the reply, as in a chatbot.</div>
+  </div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>structured.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from typing import Literal
+from pydantic import BaseModel, Field
+from langchain.agents import create_agent
+from langchain.agents.structured_output import ToolStrategy
+from llm import model
+
+class Flashcard(BaseModel):
+    """A study flashcard."""
+    question: str = Field(description="A short question")
+    answer: str = Field(description="A one-sentence answer")
+    difficulty: Literal["easy", "medium", "hard"]
+
+agent = create_agent(model, tools=[], response_format=ToolStrategy(Flashcard))
+
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "Make a flashcard about gradient descent."}]}
+)
+
+card = result["structured_response"]   # a real Flashcard object
+print(card.question)
+print(card.answer)
+print(card.difficulty)</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>What is gradient descent and how does it work in optimizing a function?
+Gradient descent is an iterative optimization algorithm that moves a point in the direction of the steepest decrease of a differentiable function. Starting from an initial guess, it repeatedly updates the point by subtracting a scaled version of the gradient (the vector of partial derivatives) at that point, effectively stepping downhill until convergence to a local minimum.
+medium</pre></figure>
+  </div>
+  <div class="note warn">
+    <b>Tested: two Groq errors to expect</b>
+    <ul>
+      <li><b>Tools plus a plain schema:</b> <code>response_format=Flashcard</code> with tools gave <code>400: json mode cannot be combined with tool/function calling</code>. Wrapping it in <code>ToolStrategy(...)</code> fixed it.</li>
+      <li><b>A question that does not fit the schema:</b> <code>ToolStrategy</code> requires the model to answer through the schema. When it replied in plain text instead, Groq returned <code>400: Tool choice is required, but model did not call a tool</code>. Keep questions and schemas matched, and catch this error in real apps.</li>
+    </ul>
+  </div>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Add a <code>topic: str</code> field to <code>Flashcard</code>.</li>
+      <li>Change <code>difficulty</code> to allow only <code>"easy"</code> and check what the model does.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-structured">I ran this</label>
+  </div>
+</section>
+
+<section class="concept" id="c-stream">
+  <div class="concept-head"><span class="num">6</span><h3>Streaming</h3><span class="api">agent.stream(..., version="v2")</span></div>
+  <p><code>invoke()</code> waits until everything is finished. <code>stream()</code> gives you results as they happen, so a person can see that the agent is working. Pick a mode by what you want to show.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Mode</th><th>You receive</th><th>Use it for</th></tr></thead>
+    <tbody>
+      <tr><td><code>"updates"</code></td><td>One item per finished step</td><td>Progress such as "Searching..."</td></tr>
+      <tr><td><code>"messages"</code></td><td>Each piece of text as it is written</td><td>Typing effect in a chat window</td></tr>
+    </tbody>
+  </table></div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>stream_steps.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from langchain.agents import create_agent
+from langchain.tools import tool
+from llm import model
+
+@tool
+def multiply(a: float, b: float) -&gt; float:
+    """Multiply two numbers."""
+    return a * b
+
+agent = create_agent(model, tools=[multiply])
+question = {"messages": [{"role": "user", "content": "What is 12 times 8? Use the tool."}]}
+
+for chunk in agent.stream(question, stream_mode="updates", version="v2"):
+    for step, update in chunk["data"].items():
+        last = update["messages"][-1]
+        print(f"[{step}] {type(last).__name__}: {last.content or last.tool_calls}")</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>[model] AIMessage: [{'name': 'multiply', 'args': {'a': 12, 'b': 8}, 'id': 'fc_18cb3718-fd4c-4d9a-b08a-2134b72cc143', 'type': 'tool_call'}]
+[tools] ToolMessage: 96.0
+[model] AIMessage: 12 × 8 = **96**</pre></figure>
+  </div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>stream_tokens.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from langchain.agents import create_agent
+from llm import model
+
+agent = create_agent(model, tools=[])
+question = {"messages": [{"role": "user", "content": "Write a two-line poem about loops."}]}
+
+for chunk in agent.stream(question, stream_mode="messages", version="v2"):
+    token, metadata = chunk["data"]
+    if token.text:
+        print(token.text, end="", flush=True)
+print()</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>Loops spin like gears, a dance of endless code,  
+Each iteration whispers, “start again, unfold.”</pre></figure>
+  </div>
+  <div class="note">
+    <b>About the newer API</b>
+    <p>The docs recommend <code>agent.stream_events(..., version="v3")</code> for new apps. In version 1.4.9 it prints a warning that it is experimental, and the tool output came back as <code>None</code> in my test. Learn <code>stream()</code> first. It works today, and the ideas carry over.</p>
+  </div>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Print only the <code>[tools]</code> steps to make a simple activity log.</li>
+      <li>Add a <code>time.sleep(2)</code> inside the tool and watch the steps arrive.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-stream">I ran this</label>
+  </div>
+</section>
+
+<section class="concept" id="c-context">
+  <div class="concept-head"><span class="num">7</span><h3>Runtime context</h3><span class="api">context_schema= + ToolRuntime</span></div>
+  <p>Tools often need facts such as the current user ID. You could ask the model to pass the ID, but then the model could get it wrong or be tricked into using another user's ID. Context gives those facts straight to your tool. The model never sees that argument.</p>
+  <div class="when">
+    <div class="use"><b>Use it when</b>A tool needs a user ID, a language, a plan level, or a database connection.</div>
+    <div class="skip"><b>Skip it when</b>The value comes from the conversation, such as the city in "weather in Kandy". That belongs in a normal tool argument.</div>
+  </div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>context.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from dataclasses import dataclass
+from langchain.agents import create_agent
+from langchain.tools import tool, ToolRuntime
+from llm import model
+
+GRADES = {
+    "student-1": {"Math": 82, "Physics": 74},
+    "student-2": {"Math": 61, "Physics": 90},
+}
+
+@dataclass
+class UserContext:
+    user_id: str
+
+@tool
+def get_my_grades(runtime: ToolRuntime[UserContext]) -&gt; str:
+    """Get the grades of the student who is asking."""
+    return str(GRADES[runtime.context.user_id])
+
+agent = create_agent(model, tools=[get_my_grades], context_schema=UserContext)
+
+question = {"messages": [{"role": "user", "content": "What is my best subject?"}]}
+
+for user in ["student-1", "student-2"]:
+    result = agent.invoke(question, context=UserContext(user_id=user))
+    print(user, "-&gt;", result["messages"][-1].content)</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>student-1 -&gt; Your best subject is **Math**, with a score of 82 compared to 74 in Physics.
+student-2 -&gt; Your best subject is **Physics** – you scored 90, which is higher than your Math score of 61.</pre></figure>
+  </div>
+  <p>Both students asked the same question and got different answers, because each run had different context. The <code>runtime</code> argument is filled in by LangChain and is hidden from the model.</p>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Print <code>get_my_grades.args</code>. You will see that <code>runtime</code> is not there.</li>
+      <li>Add a <code>language: str</code> field to <code>UserContext</code> and use it in the tool's reply.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-context">I ran this</label>
+  </div>
+</section>
+
+<!-- SAFE -->
+<section id="safe-head">
+  <div class="group-head">
+    <span class="eyebrow">Safe</span>
+    <h2>Keep the loop under control</h2>
+  </div>
+</section>
+
+<section class="concept" id="c-middleware">
+  <div class="concept-head"><span class="num">8</span><h3>Middleware</h3><span class="api">create_agent(middleware=[...])</span></div>
+  <p>Middleware is code that runs at set points in the loop: before the model, after the model, or around a tool call. You add features to your agent without changing the loop. LangChain includes many, and you can write your own in a few lines.</p>
+  <h4>Learn these built-in ones first</h4>
+  <div class="tbl"><table>
+    <thead><tr><th>Middleware</th><th>Solves this problem</th></tr></thead>
+    <tbody>
+      <tr><td><code>ModelCallLimitMiddleware</code></td><td>The agent loops or spends too much</td></tr>
+      <tr><td><code>ToolCallLimitMiddleware</code></td><td>One tool is called too many times</td></tr>
+      <tr><td><code>ToolErrorMiddleware</code></td><td>A tool error crashes the run</td></tr>
+      <tr><td><code>ToolRetryMiddleware</code>, <code>ModelRetryMiddleware</code></td><td>A network or rate-limit error should be retried</td></tr>
+      <tr><td><code>ModelFallbackMiddleware</code></td><td>One provider is down, so try another model</td></tr>
+      <tr><td><code>SummarizationMiddleware</code></td><td>The chat has grown too long</td></tr>
+      <tr><td><code>HumanInTheLoopMiddleware</code></td><td>A person must approve a tool call</td></tr>
+      <tr><td><code>PIIMiddleware</code></td><td>Private data such as emails should be hidden</td></tr>
+    </tbody>
+  </table></div>
+  <h4>Write your own with a decorator</h4>
+  <div class="tbl"><table>
+    <thead><tr><th>Decorator</th><th>Runs</th><th>Example use</th></tr></thead>
+    <tbody>
+      <tr><td><code>@dynamic_prompt</code></td><td>When the system prompt is built</td><td>Different prompt for each user</td></tr>
+      <tr><td><code>@before_model</code></td><td>Before each model call</td><td>Trim old messages</td></tr>
+      <tr><td><code>@after_model</code></td><td>After each model call</td><td>Check the reply</td></tr>
+      <tr><td><code>@wrap_model_call</code></td><td>Around each model call</td><td>Switch model during a run</td></tr>
+      <tr><td><code>@wrap_tool_call</code></td><td>Around each tool call</td><td>Logging, permission checks</td></tr>
+    </tbody>
+  </table></div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>middleware.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from dataclasses import dataclass
+from langchain.agents import create_agent
+from langchain.agents.middleware import (
+    ModelCallLimitMiddleware,
+    SummarizationMiddleware,
+    dynamic_prompt,
+    wrap_tool_call,
+)
+from langchain.tools import tool
+from llm import model
+
+@dataclass
+class Learner:
+    level: str
+
+@tool
+def add(a: float, b: float) -&gt; float:
+    """Add two numbers."""
+    return a + b
+
+# Your own middleware 1: build the system prompt for each run
+@dynamic_prompt
+def tutor_prompt(request):
+    level = request.runtime.context.level
+    return f"You are a math tutor. Explain at a {level} level. Use tools for sums."
+
+# Your own middleware 2: watch every tool call
+@wrap_tool_call
+def log_tool(request, handler):
+    print("Calling:", request.tool_call["name"], request.tool_call["args"])
+    result = handler(request)
+    print("Returned:", result.content)
+    return result
+
+agent = create_agent(
+    model,
+    tools=[add],
+    context_schema=Learner,
+    middleware=[
+        tutor_prompt,
+        log_tool,
+        # Built-in: stop after 5 model calls
+        ModelCallLimitMiddleware(run_limit=5, exit_behavior="end"),
+        # Built-in: shrink long chats so they fit the model
+        SummarizationMiddleware(model=model, trigger=("tokens", 4000), keep=("messages", 20)),
+    ],
+)
+
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "What is 19 + 23?"}]},
+    context=Learner(level="beginner"),
+)
+print(result["messages"][-1].content)</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run (shortened)</figcaption><pre>Calling: add {'a': 19, 'b': 23}
+Returned: 42.0
+Let’s walk through the addition step by step, just like you’d do on paper.
+
+```</pre></figure>
+  </div>
+  <h4>Turn a crash into something the model can handle</h4>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>tool_errors.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from langchain.agents import create_agent
+from langchain.agents.middleware import ToolErrorMiddleware
+from langchain.tools import tool
+from llm import model
+
+@tool
+def square_root(x: float) -&gt; float:
+    """Return the square root of a number."""
+    if x &lt; 0:
+        raise ValueError("Cannot take the square root of a negative number.")
+    return x ** 0.5
+
+def explain_error(error, request):
+    if isinstance(error, ValueError):
+        return f"Tool error: {error}"   # the model reads this
+    return None                         # anything else still stops the run
+
+question = {"messages": [{"role": "user", "content": "Use the tool to find the square root of -16."}]}
+
+# Without middleware, the error stops the whole run:
+plain = create_agent(model, tools=[square_root])
+try:
+    plain.invoke(question)
+except ValueError as error:
+    print("Crashed:", error)
+
+# With middleware, the model reads the error and answers the user:
+safe = create_agent(model, tools=[square_root], middleware=[ToolErrorMiddleware(explain_error)])
+result = safe.invoke(question)
+print("Recovered:", result["messages"][-1].content)</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>Crashed: Cannot take the square root of a negative number.
+Recovered: I’m sorry, but the `square_root` tool can’t handle negative inputs. The square root of \(-16\) is a complex number: \( \sqrt{-16} = 4i \). If you’d like to compute it manually or use a different tool that supports complex arithmetic, let me know!</pre></figure>
+  </div>
+  <p>The handler is required, and it chooses what the model sees. It sends a message for <code>ValueError</code> and returns <code>None</code> for everything else, so internal errors stay out of the conversation.</p>
+  <div class="note warn">
+    <b>Tested: three things to remember</b>
+    <ul>
+      <li><b>Set a limit.</b> <code>create_agent</code> has a default <code>recursion_limit</code> of 9999, so a stuck agent can run for a long time. Your <code>single-tool-agent</code> already uses <code>ModelCallLimitMiddleware</code>, which is the right habit.</li>
+      <li><b>Check for the limit message.</b> With <code>exit_behavior="end"</code>, the last message becomes <code>Model call limits exceeded: run limit (1/1)</code>. Tools may already have run by then.</li>
+      <li><b>Summaries lose details.</b> With an aggressive setting (summarise after 5 messages), my test agent forgot the user's name. Use a higher trigger, and keep important facts in <a href="#c-longterm">long-term memory</a>.</li>
+    </ul>
+  </div>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Add <code>ToolErrorMiddleware</code> to your math agent, then ask it to divide by zero.</li>
+      <li>Change <code>Learner(level="beginner")</code> to <code>"expert"</code> and compare the replies.</li>
+      <li>Set <code>run_limit=1</code> and print the last message.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-middleware">I ran this</label>
+  </div>
+</section>
+
+<section class="concept" id="c-approval">
+  <div class="concept-head"><span class="num">9</span><h3>Human approval</h3><span class="api">HumanInTheLoopMiddleware + Command(resume=...)</span></div>
+  <p>Some actions should not happen without a person. This middleware pauses the agent just before a chosen tool runs. Your program shows the request to a person, then resumes with their decision. The paused run is saved by the checkpointer, so it can even wait for hours.</p>
+  <div class="when">
+    <div class="use"><b>Use it when</b>A tool sends messages, spends money, deletes data, or changes a live system.</div>
+    <div class="skip"><b>Skip it when</b>A tool only reads harmless data. Too many approvals become annoying, and people stop reading them.</div>
+  </div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>approval.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from langchain.agents import create_agent
+from langchain.agents.middleware import HumanInTheLoopMiddleware
+from langchain.tools import tool
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
+from llm import model
+
+@tool
+def send_email(to: str, subject: str) -&gt; str:
+    """Send an email."""
+    print(f"*** EMAIL SENT to {to}: {subject} ***")
+    return f"Email sent to {to}."
+
+agent = create_agent(
+    model,
+    tools=[send_email],
+    checkpointer=InMemorySaver(),      # required: the paused run must be saved
+    middleware=[
+        HumanInTheLoopMiddleware(
+            interrupt_on={"send_email": {"allowed_decisions": ["approve", "reject"]}},
+            interrupt_mode="per_call",
+        )
+    ],
+)
+
+config = {"configurable": {"thread_id": "email-1"}}
+question = {"messages": [{"role": "user", "content": "Email sam@example.com with subject 'Meeting moved'."}]}
+
+# 1. The agent runs until it wants the tool, then pauses.
+result = agent.invoke(question, config, version="v2")
+
+for interrupt in result.interrupts:
+    print("Waiting for approval:", interrupt.value["name"], interrupt.value["args"])
+
+# 2. You decide. Change "approve" to "reject" and run it again.
+decisions = {interrupt.id: {"type": "approve"} for interrupt in result.interrupts}
+
+# 3. The agent continues from where it paused.
+result = agent.invoke(Command(resume=decisions), config, version="v2")
+print(result.value["messages"][-1].content)</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>Waiting for approval: send_email {'subject': 'Meeting moved', 'to': 'sam@example.com'}
+*** EMAIL SENT to sam@example.com: Meeting moved ***
+✅ Email sent to sam@example.com with subject “Meeting moved”.</pre></figure>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Decision</th><th>What happens</th><th>Shape</th></tr></thead>
+    <tbody>
+      <tr><td><b>approve</b></td><td>The tool runs as requested</td><td class="wrap"><code>{"type": "approve"}</code></td></tr>
+      <tr><td><b>reject</b></td><td>The tool does not run. The model gets your message.</td><td class="wrap"><code>{"type": "reject", "message": "Do not send this."}</code></td></tr>
+      <tr><td><b>edit</b></td><td>The tool runs with your changed arguments</td><td class="wrap"><code>{"type": "edit", "edited_action": {"name": "send_email", "args": {...}}}</code></td></tr>
+      <tr><td><b>respond</b></td><td>Your message is returned as the tool's result</td><td class="wrap"><code>{"type": "respond", "message": "Blue."}</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <b>Two details</b>
+    <ul>
+      <li>This needs a checkpointer and a <code>thread_id</code>, because the paused run has to be saved somewhere.</li>
+      <li><code>interrupt_mode="per_call"</code> needs langchain 1.4.6 or newer. The docs recommend it for new agents. In this mode your decisions are a dictionary keyed by interrupt ID.</li>
+    </ul>
+  </div>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Change the decision to <code>{"type": "reject", "message": "Do not send this."}</code>. The "EMAIL SENT" line should not appear.</li>
+      <li>Replace the automatic decision with <code>input("Approve? y/n ")</code> so that you decide while it runs.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-approval">I ran this</label>
+  </div>
+</section>
+
+<!-- PATTERNS -->
+<section id="patterns-head">
+  <div class="group-head">
+    <span class="eyebrow">Patterns</span>
+    <h2>Bigger systems from the same parts</h2>
+  </div>
+  <p>These three need no new loop. Each one is a tool, or a place for a tool to keep data.</p>
+</section>
+
+<section class="concept" id="c-retrieval">
+  <div class="concept-head"><span class="num">10</span><h3>Retrieval (RAG)</h3><span class="api">a @tool that searches your data</span></div>
+  <p>RAG sounds complicated, but in an agent it is just a search tool. The model asks for a search, reads what comes back, and answers from it. This gives the model knowledge it was not trained on, such as your notes or company documents.</p>
+  <div class="when">
+    <div class="use"><b>Use it when</b>Answers must come from your own documents and you want to cite them.</div>
+    <div class="skip"><b>Skip it when</b>The data is small enough to paste into the system prompt.</div>
+  </div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>retrieval.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from langchain.agents import create_agent
+from langchain.tools import tool
+from llm import model
+
+NOTES = [
+    "Refund policy: customers can get a refund within 14 days of purchase.",
+    "Shipping: orders inside Sri Lanka arrive in 3 working days.",
+    "Support hours: Monday to Friday, 9am to 5pm.",
+]
+
+@tool
+def search_notes(query: str) -&gt; str:
+    """Search the company notes. Use this for any policy or support question."""
+    words = query.lower().split()
+    hits = [note for note in NOTES if any(word in note.lower() for word in words)]
+    return "\n".join(hits) or "Nothing found."
+
+agent = create_agent(
+    model,
+    tools=[search_notes],
+    system_prompt="Answer only from the notes. If they do not help, say you do not know.",
+)
+
+result = agent.invoke({"messages": [{"role": "user", "content": "How long do I have to get a refund?"}]})
+print(result["messages"][-1].content)</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>You can request a refund within **14 days** of your purchase.</pre></figure>
+  </div>
+  <p>This search only matches words, which keeps the idea easy to see. To search by meaning, replace the inside of <code>search_notes</code> with a vector store, such as <code>InMemoryVectorStore</code> from <code>langchain_core.vectorstores</code>, and call <code>similarity_search(query, k=3)</code>. You will need an embedding model for that as well. The agent code stays the same.</p>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Ask something that is not in the notes, such as "Do you sell gift cards?". It should say that it does not know.</li>
+      <li>Load <code>NOTES</code> from a text file of your own.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-retrieval">I ran this</label>
+  </div>
+</section>
+
+<section class="concept" id="c-subagents">
+  <div class="concept-head"><span class="num">11</span><h3>Sub-agents</h3><span class="api">an agent inside a @tool</span></div>
+  <p>A multi-agent system can be this simple: wrap one agent in a tool, and give that tool to another agent. The main agent hands work to the specialist, and only the final result comes back. The specialist's long working steps stay out of the main conversation.</p>
+  <div class="when">
+    <div class="use"><b>Use it when</b>One agent has too many tools, or two jobs need conflicting instructions.</div>
+    <div class="skip"><b>Skip it when</b>One agent works. Each extra agent adds model calls, cost and more ways to fail.</div>
+  </div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>sub_agents.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from langchain.agents import create_agent
+from langchain.tools import tool
+from llm import model
+
+@tool
+def add(a: float, b: float) -&gt; float:
+    """Add two numbers."""
+    return a + b
+
+# A specialist agent with its own tools and instructions
+math_agent = create_agent(
+    model,
+    tools=[add],
+    system_prompt="You solve math problems. Use tools. Reply with only the result.",
+)
+
+# Wrap the specialist in a tool
+@tool
+def ask_math_expert(problem: str) -&gt; str:
+    """Send a math problem to the math expert and get the result."""
+    result = math_agent.invoke({"messages": [{"role": "user", "content": problem}]})
+    return result["messages"][-1].content
+
+# The main agent treats the specialist like any other tool
+boss = create_agent(
+    model,
+    tools=[ask_math_expert],
+    system_prompt="You help users plan. Send any calculation to the math expert.",
+)
+
+result = boss.invoke(
+    {"messages": [{"role": "user", "content": "I spent 1250 on food and 830 on travel. What is my total?"}]}
+)
+print(result["messages"][-1].content)</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>Your total spending is **$2,080**.</pre></figure>
+  </div>
+  <p>Notice the dollar sign in the output. Nobody mentioned a currency, so the model added it by itself. Check details like this when agents pass text to each other.</p>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Add a second specialist, such as a <code>writer_agent</code>, and let the main agent use both.</li>
+      <li>Print <code>result["messages"]</code> and notice that the specialist's own tool calls are not there.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-subagents">I ran this</label>
+  </div>
+</section>
+
+<section class="concept" id="c-longterm">
+  <div class="concept-head"><span class="num">12</span><h3>Long-term memory</h3><span class="api">store= + runtime.store</span></div>
+  <p>A checkpointer remembers one conversation. A store remembers facts across all conversations, such as "this user prefers Python examples". You decide what is saved, usually with a tool.</p>
+  <div class="tbl"><table>
+    <thead><tr><th></th><th>Checkpointer</th><th>Store</th></tr></thead>
+    <tbody>
+      <tr><td><b>Saves</b></td><td>The whole message list</td><td>Only the facts you choose</td></tr>
+      <tr><td><b>Organised by</b></td><td><code>thread_id</code></td><td>Namespace and key, often a user ID</td></tr>
+      <tr><td><b>Lasts for</b></td><td>One conversation</td><td>All conversations</td></tr>
+      <tr><td><b>Think of it as</b></td><td>The chat transcript</td><td>A notebook about the user</td></tr>
+    </tbody>
+  </table></div>
+  <div class="pair">
+    <figure class="snippet"><figcaption><span>long_term_memory.py</span><button class="copy" type="button">Copy</button></figcaption><pre><code class="py">from dataclasses import dataclass
+from langchain.agents import create_agent
+from langchain.tools import tool, ToolRuntime
+from langgraph.store.memory import InMemoryStore
+from llm import model
+
+@dataclass
+class UserContext:
+    user_id: str
+
+@tool
+def save_preference(preference: str, runtime: ToolRuntime[UserContext]) -&gt; str:
+    """Save something the user wants remembered for future chats."""
+    runtime.store.put(("preferences",), runtime.context.user_id, {"text": preference})
+    return "Saved."
+
+@tool
+def load_preference(runtime: ToolRuntime[UserContext]) -&gt; str:
+    """Load what the user asked to be remembered."""
+    item = runtime.store.get(("preferences",), runtime.context.user_id)
+    return item.value["text"] if item else "Nothing saved."
+
+agent = create_agent(
+    model,
+    tools=[save_preference, load_preference],
+    context_schema=UserContext,
+    store=InMemoryStore(),
+)
+
+me = UserContext(user_id="student-1")
+
+# Two separate runs. No thread_id and no shared messages.
+agent.invoke({"messages": [{"role": "user", "content": "Remember that I prefer Python examples."}]}, context=me)
+result = agent.invoke({"messages": [{"role": "user", "content": "Which language do I prefer? Check my saved preference."}]}, context=me)
+print(result["messages"][-1].content)</code></pre></figure>
+    <figure class="output"><figcaption>Real output from one run</figcaption><pre>You prefer **Python**.</pre></figure>
+  </div>
+  <p>The two <code>invoke()</code> calls share no messages and no thread, but the second one still found the preference. <code>InMemoryStore</code> is also for learning only, and is lost when Python stops.</p>
+  <div class="try">
+    <h4>Try this</h4>
+    <ul>
+      <li>Run the second question with <code>user_id="student-2"</code>. It should find nothing.</li>
+    </ul>
+    <label class="ran"><input type="checkbox" data-done="c-longterm">I ran this</label>
+  </div>
+</section>
+
+<!-- BUILDER -->
+<section id="builder">
+  <div class="group-head">
+    <span class="eyebrow">Play</span>
+    <h2>Build an agent</h2>
+  </div>
+  <p>Switch features on and off and watch the code change. Each result is a complete script: copy it, save it next to <code>llm.py</code>, and run it. Compare two versions to see exactly what each feature adds.</p>
+  <div class="panel">
+    <div class="builder">
+      <div class="opts" id="opts">
+        <label class="opt" for="o-memory"><input type="checkbox" id="o-memory" data-o="memory" checked><b>Memory</b><small>Remembers follow-up questions</small></label>
+        <label class="opt" for="o-structured"><input type="checkbox" id="o-structured" data-o="structured"><b>Structured output</b><small>Returns a Report object</small></label>
+        <label class="opt" for="o-context"><input type="checkbox" id="o-context" data-o="context"><b>Runtime context</b><small>Tool knows which student is asking</small></label>
+        <label class="opt" for="o-limit"><input type="checkbox" id="o-limit" data-o="limit" checked><b>Call limit</b><small>Stops after 6 model calls</small></label>
+        <label class="opt" for="o-errors"><input type="checkbox" id="o-errors" data-o="errors"><b>Error handling</b><small>Tool errors go to the model</small></label>
+        <label class="opt" for="o-approval"><input type="checkbox" id="o-approval" data-o="approval"><b>Human approval</b><small id="approval-note">Asks before using the tool</small></label>
+      </div>
+      <figure class="snippet">
+        <figcaption><span id="b-name">study_coach.py</span><button class="copy" type="button">Copy</button></figcaption>
+        <pre><code class="py" id="b-code"></code></pre>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- FIX -->
+<section id="fix">
+  <div class="group-head">
+    <span class="eyebrow">When something goes wrong</span>
+    <h2>Find the fix</h2>
+  </div>
+  <p>Start from the problem you can see.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Your agent...</th><th>Reach for</th></tr></thead>
+    <tbody>
+      <tr><td>forgets what was just said</td><td><a href="#c-memory">Checkpointer</a> and a stable <code>thread_id</code>. Build the agent once.</td></tr>
+      <tr><td>forgets after a restart</td><td><a href="#c-memory"><code>SqliteSaver</code></a> instead of <code>InMemorySaver</code></td></tr>
+      <tr><td>forgets the user next week</td><td><a href="#c-longterm">A store</a></td></tr>
+      <tr><td>gives text your code cannot use</td><td><a href="#c-structured"><code>ToolStrategy</code></a> with a Pydantic class</td></tr>
+      <tr><td>feels frozen while it works</td><td><a href="#c-stream"><code>stream()</code></a></td></tr>
+      <tr><td>crashes when a tool fails</td><td><a href="#c-middleware"><code>ToolErrorMiddleware</code></a></td></tr>
+      <tr><td>loops or uses too many tokens</td><td><a href="#c-middleware"><code>ModelCallLimitMiddleware</code></a></td></tr>
+      <tr><td>hits the model's token limit in long chats</td><td><a href="#c-middleware"><code>SummarizationMiddleware</code></a></td></tr>
+      <tr><td>could do something risky</td><td><a href="#c-approval"><code>HumanInTheLoopMiddleware</code></a></td></tr>
+      <tr><td>needs to know who the user is</td><td><a href="#c-context">Runtime context</a></td></tr>
+      <tr><td>does not know your documents</td><td><a href="#c-retrieval">A retrieval tool</a></td></tr>
+      <tr><td>picks the wrong tool</td><td>Better <a href="#c-tools">names and docstrings</a>, then fewer tools or <a href="#c-subagents">sub-agents</a></td></tr>
+      <tr><td>does something and you cannot see why</td><td>Print <code>result["messages"]</code>. Later, try LangSmith tracing.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- SKIP -->
+<section id="skip">
+  <div class="group-head">
+    <span class="eyebrow">Save your time</span>
+    <h2>Safe to skip for now</h2>
+  </div>
+  <p>This is the other side of 80/20. Older tutorials are full of these names. When you see them, use the modern replacement.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>You may see</th><th>Use this instead</th></tr></thead>
+    <tbody>
+      <tr><td><code>AgentExecutor</code>, <code>initialize_agent</code></td><td><code>create_agent</code></td></tr>
+      <tr><td><code>create_react_agent</code></td><td><code>create_agent</code></td></tr>
+      <tr><td><code>ConversationBufferMemory</code></td><td>A checkpointer</td></tr>
+      <tr><td><code>RunnableWithMessageHistory</code>, <code>InMemoryChatMessageHistory</code></td><td>A checkpointer, or a plain list in a simple chain</td></tr>
+      <tr><td><code>LLMChain</code></td><td><code>prompt | model | parser</code></td></tr>
+      <tr><td><code>InjectedState</code>, <code>InjectedStore</code>, <code>get_runtime()</code></td><td><code>ToolRuntime</code></td></tr>
+      <tr><td><code>max_iterations</code></td><td><code>ModelCallLimitMiddleware</code></td></tr>
+    </tbody>
+  </table></div>
+  <h3>Come back to these later</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Tool</th><th>What it is</th><th>Learn it when</th></tr></thead>
+    <tbody>
+      <tr><td><b>LangGraph</b></td><td>The engine under <code>create_agent</code>. You draw your own graph of steps.</td><td>You need fixed branches or workflows that a simple loop cannot express</td></tr>
+      <tr><td><b>LangSmith</b></td><td>A website that records every step of every run</td><td>Your agent has more than a few tools, and printing is not enough</td></tr>
+      <tr><td><b>MCP</b></td><td>A standard way to use tools from other servers, through <code>langchain-mcp-adapters</code></td><td>You want ready-made tools for services such as GitHub</td></tr>
+      <tr><td><b>Deep Agents</b></td><td><code>create_deep_agent</code> adds planning, files and sub-agents</td><td>Tasks run for a long time and need many steps</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- IDEAS -->
+<section id="ideas">
+  <div class="group-head">
+    <span class="eyebrow">Next</span>
+    <h2>What you could build</h2>
+  </div>
+  <p>I ordered these by difficulty, and each one is useful on its own. Build the first two by improving projects you already have. After that, pick the one you would use yourself.</p>
+  <div class="cards">
+    <article class="card">
+      <div class="top"><h3>Math tutor</h3><span class="tag">Beginner</span></div>
+      <p>Grow your <code>math-agent</code> into a tutor that remembers the chat, explains at the learner's level, and handles errors without crashing.</p>
+      <div class="tags"><a href="#c-tools">tools</a><a href="#c-memory">memory</a><a href="#c-context">context</a><a href="#c-middleware">middleware</a></div>
+    </article>
+    <article class="card">
+      <div class="top"><h3>Research assistant</h3><span class="tag">Beginner</span></div>
+      <p>Extend your <code>single-tool-agent</code> so that it returns a report object with findings and source links, and streams its progress.</p>
+      <div class="tags"><a href="#c-structured">structured</a><a href="#c-stream">streaming</a><a href="#c-middleware">limits</a></div>
+    </article>
+    <article class="card">
+      <div class="top"><h3>Study buddy</h3><span class="tag">Intermediate</span></div>
+      <p>Load your lecture notes or PDFs, answer questions with citations, and generate flashcards and quizzes. It remembers which topics you find hard.</p>
+      <div class="tags"><a href="#c-retrieval">retrieval</a><a href="#c-structured">structured</a><a href="#c-longterm">long-term memory</a></div>
+    </article>
+    <article class="card">
+      <div class="top"><h3>Data analyst</h3><span class="tag">Intermediate</span></div>
+      <p>Ask questions about a CSV or SQLite file in plain English. The agent writes read-only queries and summarises the results. It suits your ML work well.</p>
+      <div class="tags"><a href="#c-tools">tools</a><a href="#c-context">context</a><a href="#c-approval">approval</a></div>
+    </article>
+    <article class="card">
+      <div class="top"><h3>Job application helper</h3><span class="tag">Intermediate</span></div>
+      <p>Compare a job advert with your CV, score the match, list the gaps and draft a cover letter. You approve each draft before it is saved.</p>
+      <div class="tags"><a href="#c-structured">structured</a><a href="#c-retrieval">retrieval</a><a href="#c-approval">approval</a></div>
+    </article>
+    <article class="card">
+      <div class="top"><h3>ML experiment assistant</h3><span class="tag">Advanced</span></div>
+      <p>A main agent directs specialists that read training logs, compare runs and suggest the next experiment. It writes the results to a report.</p>
+      <div class="tags"><a href="#c-subagents">sub-agents</a><a href="#c-retrieval">retrieval</a><a href="#c-longterm">long-term memory</a></div>
+    </article>
+  </div>
+  <p><b>My suggestion:</b> start with the Math tutor, because it fixes your memory bug and covers four concepts in code you already know. Then build the Study buddy, because it teaches retrieval, the pattern you will use most in real projects.</p>
+</section>
+
+<!-- QUIZ -->
+<section id="quiz">
+  <div class="group-head">
+    <span class="eyebrow">Check yourself</span>
+    <h2>Six quick questions</h2>
+  </div>
+  <div class="quiz" id="quiz-list"></div>
+  <p class="score" id="quiz-score" aria-live="polite"></p>
+</section>
+
+<!-- NOTES -->
+<section id="notes">
+  <div class="group-head">
+    <span class="eyebrow">Trust, but check</span>
+    <h2>How this page was tested</h2>
+  </div>
+  <p>Checked on 7 November 2026 with <code>langchain</code> 1.4.9, <code>langchain-core</code> 1.7.6, <code>langgraph</code> 1.2.20 and <code>langchain-groq</code> 1.1.3. LangChain changes quickly, so check the docs if something behaves differently.</p>
+  <ul>
+    <li><b>Code examples:</b> every Python script shown with an output block ran on <code>openai/gpt-oss-20b</code> through Groq, and that block is the real output. Model replies vary, so yours will differ a little.</li>
+    <li><b>Step-through demo:</b> the messages are recorded from real runs.</li>
+    <li><b>thread_id playground:</b> this is a simulation in your browser, and no model runs.</li>
+    <li><b>Agent builder:</b> all 48 possible scripts ran with a scripted stand-in model. Ten of them also ran on Groq. The other 38 have not run on a real model.</li>
+    <li><b>Not run:</b> MCP, Deep Agents, LangSmith, Postgres, OpenAI, and vector search with real embeddings. Those notes come from the official docs.</li>
+  </ul>
+  <h3>Official docs</h3>
+  <ul>
+    <li><a href="https://docs.langchain.com/oss/python/langchain/agents">Agents</a></li>
+    <li><a href="https://docs.langchain.com/oss/python/langchain/tools">Tools</a></li>
+    <li><a href="https://docs.langchain.com/oss/python/langchain/short-term-memory">Short-term memory</a></li>
+    <li><a href="https://docs.langchain.com/oss/python/langchain/structured-output">Structured output</a></li>
+    <li><a href="https://docs.langchain.com/oss/python/langchain/streaming">Streaming</a></li>
+    <li><a href="https://docs.langchain.com/oss/python/langchain/middleware/built-in">Built-in middleware</a></li>
+    <li><a href="https://docs.langchain.com/oss/python/langchain/human-in-the-loop">Human-in-the-loop</a></li>
+    <li><a href="https://docs.langchain.com/oss/python/migrate/langchain-v1">Migration guide to v1</a></li>
+  </ul>
+</section>
+
+</main>
+</div>
+
+<script>
+function buildCode(o) {
+  var mem = o.memory || o.approval;
+  var mw = [];
+  if (o.limit) mw.push("ModelCallLimitMiddleware");
+  if (o.errors) mw.push("ToolErrorMiddleware");
+  if (o.approval) mw.push("HumanInTheLoopMiddleware");
+  mw.sort();
+
+  var L = [];
+  if (o.context) L.push("from dataclasses import dataclass");
+  if (o.structured) L.push("from pydantic import BaseModel");
+  L.push("from langchain.agents import create_agent");
+  if (mw.length) L.push("from langchain.agents.middleware import " + mw.join(", "));
+  if (o.structured) L.push("from langchain.agents.structured_output import ToolStrategy");
+  L.push(o.context ? "from langchain.tools import tool, ToolRuntime" : "from langchain.tools import tool");
+  if (mem) L.push("from langgraph.checkpoint.memory import InMemorySaver");
+  if (o.approval) L.push("from langgraph.types import Command");
+  L.push("from llm import model");
+  L.push("");
+
+  if (o.context) {
+    L.push('GRADES = {');
+    L.push('    "student-1": {"math": 82, "physics": 74},');
+    L.push('    "student-2": {"math": 61, "physics": 90},');
+    L.push('}');
+  } else {
+    L.push('GRADES = {"math": 82, "physics": 74}');
+  }
+  L.push("");
+
+  if (o.context) {
+    L.push("@dataclass");
+    L.push("class UserContext:");
+    L.push("    user_id: str");
+    L.push("");
+  }
+  if (o.structured) {
+    L.push("class Report(BaseModel):");
+    L.push('    """The final answer for the student."""');
+    L.push("    subject: str");
+    L.push("    grade: int");
+    L.push("    advice: str");
+    L.push("");
+  }
+
+  L.push("@tool");
+  L.push(o.context
+    ? "def get_grade(subject: str, runtime: ToolRuntime[UserContext]) -> int:"
+    : "def get_grade(subject: str) -> int:");
+  L.push('    """Get the grade for one subject, such as math or physics."""');
+  L.push(o.context ? "    grades = GRADES[runtime.context.user_id]" : "    grades = GRADES");
+  L.push("    if subject.lower() not in grades:");
+  L.push('        raise ValueError(f"No grade found for {subject}.")');
+  L.push("    return grades[subject.lower()]");
+  L.push("");
+
+  if (o.errors) {
+    L.push("def explain_error(error, request):");
+    L.push("    if isinstance(error, ValueError):");
+    L.push('        return f"Tool error: {error}"   # the model reads this');
+    L.push("    return None                         # anything else stops the run");
+    L.push("");
+  }
+
+  L.push("agent = create_agent(");
+  L.push("    model,");
+  L.push("    tools=[get_grade],");
+  L.push('    system_prompt="You are a study coach. Use get_grade to look up grades.",');
+  if (o.context) L.push("    context_schema=UserContext,");
+  if (o.structured) L.push("    response_format=ToolStrategy(Report),");
+  if (mem) L.push("    checkpointer=InMemorySaver(),");
+  if (o.limit || o.errors || o.approval) {
+    L.push("    middleware=[");
+    if (o.limit) L.push('        ModelCallLimitMiddleware(run_limit=6, exit_behavior="end"),');
+    if (o.errors) L.push("        ToolErrorMiddleware(explain_error),");
+    if (o.approval) {
+      L.push("        HumanInTheLoopMiddleware(");
+      L.push('            interrupt_on={"get_grade": {"allowed_decisions": ["approve", "reject"]}},');
+      L.push('            interrupt_mode="per_call",');
+      L.push("        ),");
+    }
+    L.push("    ],");
+  }
+  L.push(")");
+  L.push("");
+
+  if (mem) { L.push('config = {"configurable": {"thread_id": "chat-1"}}'); }
+  if (o.context) { L.push('context = UserContext(user_id="student-1")'); }
+  if (mem || o.context) L.push("");
+
+  var callArgs = [];
+  if (mem) callArgs.push("config");
+  if (o.context) callArgs.push("context=context");
+  if (o.approval) callArgs.push('version="v2"');
+  var tail = callArgs.length ? ", " + callArgs.join(", ") : "";
+  var out = o.structured ? 'state["structured_response"]' : 'state["messages"][-1].content';
+
+  L.push("def ask(text):");
+  L.push('    question = {"messages": [{"role": "user", "content": text}]}');
+  if (o.approval) {
+    L.push("    result = agent.invoke(question" + tail + ")");
+    L.push("");
+    L.push("    while result.interrupts:   # paused and waiting for you");
+    L.push("        for interrupt in result.interrupts:");
+    L.push('            print("Approve?", interrupt.value["name"], interrupt.value["args"])');
+    L.push('        decisions = {i.id: {"type": "approve"} for i in result.interrupts}');
+    L.push("        result = agent.invoke(Command(resume=decisions)" + tail + ")");
+    L.push("");
+    L.push("    state = result.value");
+  } else {
+    L.push("    state = agent.invoke(question" + tail + ")");
+  }
+  L.push("    return " + out);
+  L.push("");
+  L.push('print(ask("How did I do in math?"))');
+  if (mem) {
+    L.push(o.structured
+      ? 'print(ask("And what about physics?"))   # needs memory'
+      : 'print(ask("Which subject did I just ask about?"))   # needs memory');
+  }
+  return L.join("\n") + "\n";
+}
+
+
+(function () {
+  "use strict";
+  var TRACES = {"none": {"system": "You are a math assistant. Always use tools for calculations.", "messages": [{"type": "HumanMessage", "content": "Why is a tool useful for an AI agent? Answer in one short sentence.", "tool_calls": [], "name": null, "status": null}, {"type": "AIMessage", "content": "Because it lets the AI perform precise, reliable operations it can’t compute internally.", "tool_calls": [], "name": null, "status": null}]}, "one": {"system": "You are a math assistant. Always use tools for calculations.", "messages": [{"type": "HumanMessage", "content": "What is 12.5 times 8?", "tool_calls": [], "name": null, "status": null}, {"type": "AIMessage", "content": "", "tool_calls": [{"name": "multiply", "args": {"a": 12.5, "b": 8}}], "name": null, "status": null}, {"type": "ToolMessage", "content": "100.0", "tool_calls": [], "name": "multiply", "status": "success"}, {"type": "AIMessage", "content": "12.5 × 8 = **100**", "tool_calls": [], "name": null, "status": null}]}, "chain": {"system": "You are a math assistant. Always use tools for calculations.", "messages": [{"type": "HumanMessage", "content": "Multiply 6 by 3.5, then add 12, then take the square root.", "tool_calls": [], "name": null, "status": null}, {"type": "AIMessage", "content": "", "tool_calls": [{"name": "multiply", "args": {"a": 6, "b": 3.5}}], "name": null, "status": null}, {"type": "ToolMessage", "content": "21.0", "tool_calls": [], "name": "multiply", "status": "success"}, {"type": "AIMessage", "content": "", "tool_calls": [{"name": "square_root", "args": {"x": 33}}], "name": null, "status": null}, {"type": "ToolMessage", "content": "5.744562646538029", "tool_calls": [], "name": "square_root", "status": "success"}, {"type": "AIMessage", "content": "The result is approximately 5.744562646538029.", "tool_calls": [], "name": null, "status": null}]}, "error": {"system": "You are a math assistant. Always use tools for calculations.", "messages": [{"type": "HumanMessage", "content": "What is the square root of -16?", "tool_calls": [], "name": null, "status": null}, {"type": "AIMessage", "content": "", "tool_calls": [{"name": "square_root", "args": {"x": -16}}], "name": null, "status": null}, {"type": "ToolMessage", "content": "Tool error: Cannot take the square root of a negative number.", "tool_calls": [], "name": "square_root", "status": "error"}, {"type": "AIMessage", "content": "The square root of \\(-16\\) is not a real number. In the real number system the square root function is defined only for non‑negative inputs, so the tool cannot compute it directly.\n\nIn the complex number system, however, we can express it as an imaginary number:\n\n\\[\n\\sqrt{-16} = \\sqrt{16 \\times (-1)} = \\sqrt{16}\\,\\sqrt{-1} = 4\\,i\n\\]\n\nwhere \\(i\\) is the imaginary unit (\\(i^2 = -1\\)).", "tool_calls": [], "name": null, "status": null}]}};
+
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY = "lc-workbench-v1";
+  function loadState() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
+  function saveState(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
+  var saved = loadState();
+
+  /* Python syntax highlighter */
+  var KW = {};
+  "def class return if else elif for while in not and or is None True False import from as try except raise with lambda pass yield async await".split(" ").forEach(function (k) { KW[k] = 1; });
+  var TOKENS = /("""[\s\S]*?"""|f?"(?:\\.|[^"\\\n])*"|f?'(?:\\.|[^'\\\n])*')|(#.*)|(@[\w.]+)|\b(\d+(?:\.\d+)?)\b|\b([A-Za-z_]\w*)\b/g;
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function span(c, s) { return '<span class="t-' + c + '">' + esc(s) + "</span>"; }
+  function highlight(src) {
+    var out = "", last = 0, m;
+    TOKENS.lastIndex = 0;
+    while ((m = TOKENS.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      last = TOKENS.lastIndex;
+      if (m[1]) out += span("str", m[1]);
+      else if (m[2]) out += span("com", m[2]);
+      else if (m[3]) out += span("deco", m[3]);
+      else if (m[4]) out += span("num", m[4]);
+      else {
+        var w = m[5];
+        if (KW[w]) out += span("kw", w);
+        else if (src.charAt(last) === "(") out += span(/^[A-Z]/.test(w) ? "cls" : "fn", w);
+        else if (/^[A-Z][a-z]/.test(w)) out += span("cls", w);
+        else out += esc(w);
+      }
+    }
+    return out + esc(src.slice(last));
+  }
+  document.querySelectorAll("code.py").forEach(function (el) {
+    if (el.id !== "b-code") el.innerHTML = highlight(el.textContent);
+  });
+
+  /* Copy buttons */
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target.closest(".copy");
+    if (!btn) return;
+    var code = btn.closest(".snippet").querySelector("code");
+    function done(label) {
+      btn.textContent = label;
+      setTimeout(function () { btn.textContent = "Copy"; }, 1400);
+    }
+    function fallback() {
+      var range = document.createRange();
+      range.selectNodeContents(code);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      done("Press Ctrl+C");
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code.textContent).then(function () { done("Copied"); }, fallback);
+    } else { fallback(); }
+  });
+
+  /* Theme */
+  if (saved.theme) document.documentElement.setAttribute("data-theme", saved.theme);
+  $("theme").addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme") ||
+      (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var next = cur === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    saved.theme = next;
+    saveState(saved);
+  });
+
+  /* Contents: always open on wide screens */
+  var wide = window.matchMedia("(min-width: 1080px)");
+  function syncToc() { $("toc").open = wide.matches; }
+  syncToc();
+  if (wide.addEventListener) wide.addEventListener("change", syncToc);
+
+  var links = {};
+  document.querySelectorAll(".toc li a").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
+  if ("IntersectionObserver" in window) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        Object.keys(links).forEach(function (k) { links[k].classList.remove("here"); });
+        if (links[e.target.id]) links[e.target.id].classList.add("here");
+      });
+    }, { rootMargin: "-10% 0px -80% 0px" });
+    Object.keys(links).forEach(function (id) { var el = $(id); if (el) spy.observe(el); });
+  }
+
+  /* Progress */
+  saved.done = saved.done || {};
+  var boxes = document.querySelectorAll("[data-done]");
+  function renderProgress() {
+    var n = 0;
+    boxes.forEach(function (b) {
+      var id = b.getAttribute("data-done");
+      b.checked = !!saved.done[id];
+      if (saved.done[id]) n++;
+      var link = document.querySelector('.toc a[data-c="' + id + '"]');
+      if (link) link.classList.toggle("done", !!saved.done[id]);
+    });
+    $("progress-text").textContent = n + " of " + boxes.length + " concepts tried";
+    $("progress-bar").style.width = (100 * n / boxes.length) + "%";
+  }
+  boxes.forEach(function (b) {
+    b.addEventListener("change", function () {
+      saved.done[b.getAttribute("data-done")] = b.checked;
+      saveState(saved);
+      renderProgress();
+    });
+  });
+  renderProgress();
+
+  /* Shared message rendering */
+  function msgEl(kind, who, text, call, isNew) {
+    var li = document.createElement("li");
+    li.className = "msg " + kind + (isNew ? " new" : "");
+    var w = document.createElement("span");
+    w.className = "who";
+    w.textContent = who;
+    li.appendChild(w);
+    if (text) { var t = document.createElement("span"); t.textContent = text; li.appendChild(t); }
+    (call || []).forEach(function (c) {
+      var d = document.createElement("span");
+      d.className = "call";
+      d.textContent = c;
+      li.appendChild(d);
+    });
+    return li;
+  }
+
+  /* Agent loop stepper */
+  var NOTES = {
+    one: [
+      "You send one HumanMessage. Your system_prompt is added each time the model is called, so it does not appear in this list.",
+      "The model calculates nothing here. It returns an AIMessage with empty text and a tool call. That is only a request.",
+      "LangChain runs your multiply function and adds the result to the list as a ToolMessage.",
+      "The model reads the whole list again. This time it makes no tool calls, so the loop ends."
+    ],
+    chain: [
+      "One message that needs three separate steps.",
+      "The model starts with the first step and asks for multiply.",
+      "The tool returns 21.0, and the list grows.",
+      "Look closely. You asked it to add 12, but the model did 21 + 12 itself and skipped the add tool. A prompt is a request, and the model can ignore it.",
+      "The square root tool runs with 33.",
+      "No more tool calls, so the loop ends. The answer is right even though one step was skipped."
+    ],
+    none: [
+      "This question needs no calculation.",
+      "The model answers straight away. No tool calls means the loop ends after one model call."
+    ],
+    error: [
+      "A question that the tool cannot handle.",
+      "The model asks for square_root with -16.",
+      "The tool raised ValueError. ToolErrorMiddleware turned the error into a ToolMessage with status=\"error\". Without it, the whole run would crash here.",
+      "The model reads the error and explains the problem to the user."
+    ]
+  };
+  var stepper = { s: "one", i: 1, timer: null };
+
+  function roleOf(m) {
+    if (m.type === "HumanMessage") return "human";
+    if (m.type === "ToolMessage") return m.status === "error" ? "err" : "tool";
+    return "ai";
+  }
+  function fmtCall(c) {
+    return c.name + "(" + Object.keys(c.args).map(function (k) { return k + "=" + JSON.stringify(c.args[k]); }).join(", ") + ")";
+  }
+  function setFlow(nodes, edges) {
+    ["you", "model", "tools", "end"].forEach(function (n) { $("n-" + n).classList.toggle("on", nodes.indexOf(n) >= 0); });
+    ["in", "call", "back", "out"].forEach(function (e) { $("e-" + e).classList.toggle("on", edges.indexOf(e) >= 0); });
+  }
+  function renderStep(isNew) {
+    var trace = TRACES[stepper.s].messages;
+    var list = $("step-msgs");
+    list.textContent = "";
+    for (var k = 0; k <= stepper.i; k++) {
+      var m = trace[k];
+      var who = m.type + (m.name ? " · " + m.name : "") + (m.status === "error" ? " · status=error" : "");
+      var calls = (m.tool_calls || []).map(function (c) { return "tool_call: " + fmtCall(c); });
+      list.appendChild(msgEl(roleOf(m), who, m.content, calls, isNew && k === stepper.i));
+    }
+    list.scrollTop = list.scrollHeight;
+    var cur = trace[stepper.i];
+    if (cur.type === "HumanMessage") setFlow(["you"], ["in"]);
+    else if (cur.type === "ToolMessage") setFlow(["tools"], ["back"]);
+    else if (cur.tool_calls && cur.tool_calls.length) setFlow(["model"], ["call"]);
+    else setFlow(["model", "end"], ["out"]);
+    $("step-caption").textContent = NOTES[stepper.s][stepper.i] || "";
+    $("step-count").textContent = "Step " + (stepper.i + 1) + " of " + trace.length;
+    $("step-back").disabled = stepper.i === 0;
+    $("step-next").disabled = stepper.i === trace.length - 1;
+  }
+  function stopPlay() {
+    if (stepper.timer) { clearInterval(stepper.timer); stepper.timer = null; }
+    $("step-play").textContent = "Play";
+  }
+  $("step-next").addEventListener("click", function () { stopPlay(); stepper.i++; renderStep(true); });
+  $("step-back").addEventListener("click", function () { stopPlay(); stepper.i--; renderStep(false); });
+  $("step-play").addEventListener("click", function () {
+    if (stepper.timer) { stopPlay(); return; }
+    var last = TRACES[stepper.s].messages.length - 1;
+    if (stepper.i >= last) { stepper.i = 0; renderStep(false); }
+    $("step-play").textContent = "Pause";
+    stepper.timer = setInterval(function () {
+      if (stepper.i >= TRACES[stepper.s].messages.length - 1) { stopPlay(); return; }
+      stepper.i++;
+      renderStep(true);
+    }, 2600);
+  });
+  $("scenario-tabs").addEventListener("click", function (ev) {
+    var b = ev.target.closest("button");
+    if (!b) return;
+    stopPlay();
+    stepper.s = b.getAttribute("data-s");
+    stepper.i = 0;
+    this.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+    renderStep(false);
+  });
+  renderStep(false);
+
+  /* thread_id playground (simulation) */
+  var cfg = {
+    store: {
+      "chat-1": [
+        { role: "human", text: "My name is Kanishka." },
+        { role: "ai", text: "Nice to meet you, Kanishka." }
+      ]
+    },
+    last: null
+  };
+  function findName(msgs) {
+    var name = null;
+    msgs.forEach(function (m) {
+      if (m.role !== "human") return;
+      var hit = /my name is ([A-Za-z][\w-]*)/i.exec(m.text);
+      if (hit) name = hit[1];
+    });
+    return name;
+  }
+  function botReply(msgs) {
+    var text = msgs[msgs.length - 1].text;
+    var told = /my name is ([A-Za-z][\w-]*)/i.exec(text);
+    if (told) return "Nice to meet you, " + told[1] + ".";
+    if (/what('s| is)? ?my name/i.test(text)) {
+      var name = findName(msgs);
+      return name ? "Your name is " + name + "." : "I don't know your name. Nothing in this list tells me.";
+    }
+    return "This practice bot only understands names. Try \"My name is Sam.\"";
+  }
+  function renderCfgCode() {
+    var thread = $("cfg-thread").value.trim();
+    var text = $("cfg-text").value;
+    var lines = [];
+    if (thread) lines.push("config = {\"configurable\": {\"thread_id\": " + JSON.stringify(thread) + "}}");
+    else lines.push("config = {}   # no thread_id");
+    lines.push("agent.invoke({\"messages\": [{\"role\": \"user\", \"content\": " + JSON.stringify(text) + "}]}, config)");
+    $("cfg-code").innerHTML = highlight(lines.join("\n"));
+  }
+  function renderCfg() {
+    renderCfgCode();
+    var thread = $("cfg-thread").value.trim();
+    var store = $("cfg-store");
+    store.textContent = "";
+    var ids = Object.keys(cfg.store);
+    if (!$("cfg-saver").checked) {
+      var off = document.createElement("li");
+      off.className = "empty";
+      off.textContent = "No checkpointer, so nothing is saved. thread_id is ignored.";
+      store.appendChild(off);
+    } else if (!ids.length) {
+      var none = document.createElement("li");
+      none.className = "empty";
+      none.textContent = "Empty. Send a message to save a thread.";
+      store.appendChild(none);
+    } else {
+      ids.forEach(function (id) {
+        var li = document.createElement("li");
+        var b = document.createElement("button");
+        b.type = "button";
+        b.setAttribute("aria-pressed", String(id === thread));
+        var a = document.createElement("span");
+        a.textContent = id;
+        var c = document.createElement("span");
+        var n = cfg.store[id].length;
+        c.textContent = n + (n === 1 ? " message" : " messages");
+        b.appendChild(a);
+        b.appendChild(c);
+        b.addEventListener("click", function () { $("cfg-thread").value = id; renderCfg(); });
+        li.appendChild(b);
+        store.appendChild(li);
+      });
+    }
+    var out = $("cfg-msgs");
+    out.textContent = "";
+    if (!cfg.last) {
+      var hint = document.createElement("li");
+      hint.className = "empty";
+      hint.textContent = "Press Send to see the list the model receives.";
+      out.appendChild(hint);
+    } else if (cfg.last.error) {
+      out.appendChild(msgEl("err", "ValueError", cfg.last.error));
+    } else {
+      cfg.last.msgs.forEach(function (m) {
+        out.appendChild(msgEl(m.role, m.role === "human" ? "HumanMessage" : "AIMessage", m.text));
+      });
+      out.appendChild(msgEl("ai", "AIMessage · new reply", cfg.last.reply, null, true));
+    }
+    out.scrollTop = out.scrollHeight;
+  }
+  function sendCfg() {
+    var thread = $("cfg-thread").value.trim();
+    var text = $("cfg-text").value.trim();
+    if (!text) return;
+    var useSaver = $("cfg-saver").checked;
+    if (useSaver && $("cfg-rebuild").checked) cfg.store = {};
+    if (useSaver && !thread) {
+      cfg.last = { error: "Checkpointer requires one or more of the following 'configurable' keys: thread_id, checkpoint_ns, checkpoint_id" };
+      renderCfg();
+      return;
+    }
+    var history = useSaver && cfg.store[thread] ? cfg.store[thread] : [];
+    var msgs = history.concat([{ role: "human", text: text }]);
+    var reply = botReply(msgs);
+    if (useSaver) cfg.store[thread] = msgs.concat([{ role: "ai", text: reply }]);
+    cfg.last = { msgs: msgs, reply: reply };
+    renderCfg();
+  }
+  $("cfg-send").addEventListener("click", sendCfg);
+  $("cfg-text").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); sendCfg(); } });
+  $("cfg-thread").addEventListener("input", renderCfg);
+  $("cfg-text").addEventListener("input", renderCfgCode);
+  $("cfg-saver").addEventListener("change", renderCfg);
+  $("cfg-presets").addEventListener("click", function (ev) {
+    var b = ev.target.closest("button");
+    if (!b) return;
+    $("cfg-text").value = b.getAttribute("data-t");
+    renderCfgCode();
+  });
+  $("cfg-restart").addEventListener("click", function () {
+    cfg.store = {};
+    cfg.last = null;
+    renderCfg();
+  });
+  sendCfg();
+
+  /* Agent builder */
+  var optBoxes = document.querySelectorAll("#opts input");
+  function renderBuilder() {
+    var o = {};
+    optBoxes.forEach(function (b) { o[b.getAttribute("data-o")] = b.checked; });
+    var mem = $("o-memory");
+    if (o.approval) { mem.checked = true; o.memory = true; }
+    mem.disabled = o.approval;
+    mem.closest(".opt").classList.toggle("locked", o.approval);
+    mem.nextElementSibling.nextElementSibling.textContent = o.approval
+      ? "Required: approval saves the paused run"
+      : "Remembers follow-up questions";
+    $("b-code").innerHTML = highlight(buildCode(o));
+  }
+  optBoxes.forEach(function (b) { b.addEventListener("change", renderBuilder); });
+  renderBuilder();
+
+  /* Quiz */
+  var QUIZ = [
+    { q: "You pass the same thread_id each time, but the agent forgets the last message. What is the most likely cause?",
+      a: ["The thread_id is too short", "A new agent with a new InMemorySaver is built on each call", "The temperature is too high"], c: 1,
+      why: "InMemorySaver lives inside the object. A new one starts empty, which is the bug in math_agent.py." },
+    { q: "Does the model read your config?",
+      a: ["Yes, it is added to the prompt", "Only the thread_id", "No, it controls how the run works"], c: 2,
+      why: "Config is for LangChain and the checkpointer. The model only reads messages." },
+    { q: "A tool needs the logged-in user's ID, and the model must not be able to change it. Where does it go?",
+      a: ["In the system prompt", "As a normal tool argument", "In runtime context"], c: 2,
+      why: "Context reaches the tool through ToolRuntime and is hidden from the model." },
+    { q: "The model returns a tool call. Who runs the function?",
+      a: ["The model, on the provider's server", "The agent, in your Python program", "Nobody, the model imagines the result"], c: 1,
+      why: "The model only sends a request. The agent runs your function and adds a ToolMessage." },
+    { q: "You use tools on Groq and also need a Pydantic object back. What do you pass?",
+      a: ["response_format=ToolStrategy(MySchema)", "response_format=MySchema", "A longer system prompt asking for JSON"], c: 0,
+      why: "A plain schema with tools returned a 400 error on Groq in testing. ToolStrategy worked." },
+    { q: "Your agent can send emails. What should you add before real users try it?",
+      a: ["A higher temperature", "HumanInTheLoopMiddleware and a checkpointer", "SummarizationMiddleware"], c: 1,
+      why: "The agent pauses before the tool runs. The checkpointer saves the paused run until a person decides." }
+  ];
+  var score = 0, answered = 0;
+  QUIZ.forEach(function (item, qi) {
+    var box = document.createElement("div");
+    box.className = "q";
+    var p = document.createElement("p");
+    p.textContent = (qi + 1) + ". " + item.q;
+    box.appendChild(p);
+    var answers = document.createElement("div");
+    answers.className = "answers";
+    var why = document.createElement("span");
+    why.className = "why";
+    why.hidden = true;
+    why.textContent = item.why;
+    item.a.forEach(function (text, ai) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.addEventListener("click", function () {
+        var all = answers.querySelectorAll("button");
+        all.forEach(function (x, xi) {
+          x.disabled = true;
+          if (xi === item.c) x.classList.add("right");
+        });
+        if (ai === item.c) score++; else b.classList.add("wrong");
+        answered++;
+        why.hidden = false;
+        $("quiz-score").textContent = "Score: " + score + " of " + answered + " answered";
+      });
+      answers.appendChild(b);
+    });
+    box.appendChild(answers);
+    box.appendChild(why);
+    $("quiz-list").appendChild(box);
+  });
+})();
+</script>
+</body>
+</html>
